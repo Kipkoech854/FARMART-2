@@ -14,6 +14,7 @@ Flask-JWT-Extended==4.7.1
 Flask-Migrate==4.1.0
 Flask-RESTful==0.3.10
 Flask-SQLAlchemy==3.1.1
+flask-marshmallow
 greenlet==3.1.1
 identify==2.6.12
 importlib_metadata==8.5.0
