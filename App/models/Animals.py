@@ -1,3 +1,10 @@
+from  flask  import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_marshmallow import Marshmallow
+
+db = SQLAlchemy()
+ma = Marshmallow()
+
 class Animal(db.Model):
     __tablename__ = 'animals'
     id = db.Column(db.Integer, primary_key=True)
@@ -10,6 +17,8 @@ class Animal(db.Model):
     is_available = db.Column(db.Boolean, default=True)
     farmer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
+    images = db.relationship("Animalimages", backref="animal", lazy=True)
+
 
 class Animalimages(db.Model):
 
@@ -18,3 +27,32 @@ class Animalimages(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     url = db.Column(db.String(255), nullable = False)
     animal_id =db.Column(db.Integer, db.ForeignKey('animals.id'), nullable = False)
+
+   
+class AnimalSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Animal
+        include_fk = True
+
+    id = ma.auto_field()
+    name = ma.auto_field()
+    type = ma.auto_field()
+    breed = ma. auto_field()
+    age = ma.auto_field()
+    price = ma.auto_field()
+    description = ma.auto_field()
+    is_available = ma.auto_field()
+    farmer_id = ma.auto_field()
+
+    images = ma.Nested('AnimalimagesSchema', many=True)              
+
+class AnimalimagesSchema(ma.SQLAlchemySchema):
+    class Meta:
+        model = Animalimages
+        include_fk = True
+
+    id = ma.auto_field()
+    url = ma.auto_field()
+    animal_id = ma.auto_field()  
+
+   

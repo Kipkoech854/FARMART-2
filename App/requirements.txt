@@ -1,1 +1,5 @@
- the requirements needed
+ flask_sqlalchemy
+ flask_marshmallow
+ dotenv
+ datetime
+ 
