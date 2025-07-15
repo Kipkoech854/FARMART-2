@@ -1,6 +1,7 @@
 from  flask  import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 
 db = SQLAlchemy()
 ma = Marshmallow()
@@ -29,7 +30,7 @@ class Animalimages(db.Model):
     animal_id =db.Column(db.Integer, db.ForeignKey('animals.id'), nullable = False)
 
    
-class AnimalSchema(ma.SQLAlchemySchema):
+class AnimalSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Animal
         include_fk = True
@@ -46,7 +47,7 @@ class AnimalSchema(ma.SQLAlchemySchema):
 
     images = ma.Nested('AnimalimagesSchema', many=True)              
 
-class AnimalimagesSchema(ma.SQLAlchemySchema):
+class AnimalimagesSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Animalimages
         include_fk = True

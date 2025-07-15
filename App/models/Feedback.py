@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
+from .Users import User
 
 db = SQLAlchemy()
 ma = Marshmallow()
@@ -10,7 +11,7 @@ class Feedback(db.Model):
     __tablename__ = 'feedback'
 
     id = db.Column(db.String, primary_key = True)
-    user_id = db.Column(db.string, db.ForeignKey('users.id'), nullable = False)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable = False)
     farmer_id = db.Column(db.String, db.ForeignKey('farmers.id'), nullable = False)
     rating = db.Column(db.Integer, nullable = False)
     comment = db.Column(db.String, nullable = True)

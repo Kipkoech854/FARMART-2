@@ -3,7 +3,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
-from App.Config import config_by_name
+from Config import config_by_name
 
 
 db = SQLAlchemy()
@@ -24,8 +24,11 @@ def create_app(config_name='development'):
     cors.init_app(app)
 
     # Register blueprints or routes here
-    from App import models  # Assuming you have a routes module
+    from models import models  # Assuming you have a routes module
     # from .routes import main as main_blueprint
+    from .routes import order as Order_bp
     # app.register_blueprint(main_blueprint)
+
+    app.register_blueprint(Order_bp, url_prefix = '/api/Orders')
 
     return app

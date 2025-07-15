@@ -1,8 +1,6 @@
-<<<<<<< HEAD
 
-=======
 # imports('imports needed')
-from App import create_app
+from __init__ import create_app
 
 
 app = create_app("development")
@@ -11,4 +9,4 @@ app = create_app("development")
 
 if __name__ == '__main__':
     app.run(debug = True, host = "0.0.0.0", port = 5555)
->>>>>>> 7b0b8fa0dd4f6ff4b66d6619833f4f609732c846
+
