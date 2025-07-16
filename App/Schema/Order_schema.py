@@ -24,6 +24,9 @@ class OrderSchema(ma.SQLAlchemySchema):
     id = ma.auto_field()
     user_id = ma.auto_field()
     status = ma.auto_field()
+    paid = ma.auto_field()
+    delivered = ma.auto_field()
+    amount = ma.auto_field()
     created_at = ma.auto_field()
     
     items = ma.Nested(OrderItemSchema, many=True) 

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from App.services.Order_services import OrderService
 from App.Schema.Order_schema import OrderSchema
 from decimal import Decimal
+from App.models.Orders import Order, OrderItem
 
 Order_bp = Blueprint('Order_bp', __name__)
 
@@ -14,9 +15,9 @@ def create_order():
     if not data:
         return jsonify([{'error': 'Missing request body'}]), 400
 
-    user_id = data.get('user_id')
-    amount = data.get('amount')
-    items = data.get('items')
+    user_id = data['user_id']
+    amount = data['amount']
+    items = data['items']
 
    
     if not user_id:
@@ -43,17 +44,55 @@ def create_order():
 
     return jsonify(OrderSchema().dump(order)), 201
 
-@Order_bp.route('/debug-db', methods=['GET'])
-def debug_db():
-    from flask import current_app
-    from App.extensions import db
+@Order_bp.route('/all/<string:id>', methods=['GET'])
+def past_orders(id):
+    results = Order.query.filter_by(user_id=id).all()
 
-    if not current_app:
-        return jsonify({'error': 'No app context'}), 500
+    if not results:
+        return jsonify([{'error': 'empty order history'}]), 404
 
-    try:
-        with current_app.app_context():
-            db.engine.execute("SELECT 1")
-            return jsonify({"success": True}), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify(OrderSchema(many=True).dump(results)), 200
+
+@Order_bp.route('/pending/<string:id>', methods=['GET'])
+def pending_orders(id):
+    results = Order.query.filter(
+        Order.user_id.like(f'%{id}%'),
+        Order.status.ilike('%pending%')
+    ).all()
+
+    if not results:
+        return jsonify([{'error': 'No pending orders available'}]), 404
+
+    return jsonify(OrderSchema(many=True).dump(results)), 200
+
+@Order_bp.route('/Confirmed/<string:id>', methods=['GET'])
+def confirmed_orders(id):
+    results = Order.query.filter(
+        Order.user_id.like(f'%{id}%'),
+        Order.status.ilike('%confirmed%')
+    ).all()
+
+    if not results:
+        return jsonify([{'error': 'No pending orders available'}]), 404
+
+    return jsonify(OrderSchema(many=True).dump(results)), 200
+
+
+
+
+@Order_bp.route('/Delivered/<string:id>', methods=['GET'])
+def delivered_orders(id):
+    delivered = request.args.get('delivered', 'false').lower()
+
+    
+    is_delivered = delivered == 'true'
+    
+
+    results = Order.query.filter_by(user_id=id, delivered=is_delivered).all()
+
+    if not results:
+        return jsonify([{
+            'error': 'no delivered orders' if is_delivered else 'no undelivered orders'
+        }]), 404
+
+    return jsonify(OrderSchema(many=True).dump(results)), 200
