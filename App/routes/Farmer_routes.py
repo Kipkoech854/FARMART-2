@@ -111,8 +111,12 @@ def delete_farmer(id):
 
 @farmer_routes.route('/farmers/<int:id>/animals', methods=['GET'])
 def get_farmer_animals(id):
-    animals = Animal.query.filter_by(farmer_id=id).all()
-    animal_list = [{
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    pagination = Animal.query.filter_by(farmer_id=id).paginate(page=page, per_page=per_page, error_out=False)
+    
+    animals = [{
         "id": a.id,
         "name": a.name,
         "type": a.type,
@@ -120,18 +124,35 @@ def get_farmer_animals(id):
         "age": a.age,
         "price": a.price,
         "is_available": a.is_available
-    } for a in animals]
-    return jsonify({"animals": animal_list})
+    } for a in pagination.items]
+
+    return jsonify({
+        "animals": animals,
+        "total": pagination.total,
+        "pages": pagination.pages,
+        "current_page": pagination.page,
+        "per_page": pagination.per_page
+        })
 
 
 @farmer_routes.route('/farmers/<int:id>/feedback', methods=['GET'])
 def get_farmer_feedback(id):
-    feedbacks = Feedback.query.filter_by(farmer_id=id).all()
-    results = [{
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 5, type=int)
+
+    pagination = Feedback.query.filter_by(farmer_id=id).paginate(page=page, per_page=per_page, error_out=False)
+    
+    feedbacks = [{
         "id": f.id,
         "user_id": f.user_id,
         "rating": f.rating,
         "comment": f.comment,
         "image_url": f.image_url
-    } for f in feedbacks]
-    return jsonify({"feedback": results})
+    } for f in pagination.items]
+    
+    return jsonify({
+        "feedback": feedbacks,
+        "total": pagination.total,
+        "pages": pagination.pages,
+        "current_page": pagination.page,
+        "per_page": pagination.per_page})
