@@ -4,6 +4,7 @@ from App.models.Farmers import Farmer
 from App.models.Animals import Animal
 from App.models.Feedback import Feedback
 from App.extensions import db
+from flask_jwt_extended import create_access_token
 
 farmer_routes = Blueprint('farmer_routes', __name__)
 
@@ -50,8 +51,10 @@ def login_farmer():
 
     farmer = Farmer.query.filter_by(email=email).first()
     if farmer and farmer.check_password(password):
+        access_token = create_access_token(identity=farmer.id)
         return jsonify({
             "message": "Login successful",
+            "token": access_token,
             "farmer": {
                 "id": farmer.id,
                 "username": farmer.username,
