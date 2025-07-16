@@ -1,8 +1,8 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
- 
 
-db = SQLAlchemy()
+from flask_marshmallow import Marshmallow
+from App.models.Users import User
+from App.extensions import db
+from App.models.Users import User 
 
 
 
@@ -16,6 +16,6 @@ class Feedback(db.Model):
     comment = db.Column(db.String, nullable=True)
     image_url = db.Column(db.String(255))
 
-    user = db.relationship("User", backref="feedbacks")
+   
 
 

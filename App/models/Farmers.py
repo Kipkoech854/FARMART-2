@@ -1,8 +1,5 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-
-
-db = SQLAlchemy()
+from App.extensions import db
 
 
 class Farmers(db.Model):

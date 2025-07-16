@@ -4,19 +4,18 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from .Config import config_by_name
-from App.extensions import ma,db
+from App.extensions import ma, db
+from App.models import *  # Ensures all models are registered
 
-
-
-db = SQLAlchemy()
+# Only define new extensions if they're not already in extensions.py
 migrate = Migrate()
 jwt = JWTManager()
-cors= CORS()
+cors = CORS()
 
 def create_app(config_name='development'):
     app = Flask(__name__)
-    
-    # Load configuration from a config file or object
+
+    # Load configuration
     app.config.from_object(config_by_name[config_name])
 
     # Initialize extensions
@@ -26,12 +25,13 @@ def create_app(config_name='development'):
     jwt.init_app(app)
     cors.init_app(app)
 
-    # Register blueprints or routes here
-    from . import models  # Assuming you have a routes module
-    # from .routes import main as main_blueprint
-    from .routes.order_routes import Order_bp 
-    # app.register_blueprint(main_blueprint)
+    # Create all tables after models are loaded
+   
+    with app.app_context():
+        db.create_all()
 
-    app.register_blueprint(Order_bp, url_prefix = '/api')
+    # Register blueprints
+    from .routes.order_routes import Order_bp
+    app.register_blueprint(Order_bp, url_prefix='/api')
 
     return app

@@ -1,7 +1,6 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
 
-db = SQLAlchemy()
+from flask_marshmallow import Marshmallow
+from App.extensions import db
 
 
 class User(db.Model):
