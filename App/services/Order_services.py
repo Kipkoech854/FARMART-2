@@ -48,3 +48,65 @@ class OrderService:
         except Exception as e:
             db.session.rollback()
             return jsonify([{"error": str(e)}]), 500
+
+    def update_status(self, user_id, order_id, status):
+        try:
+            order = Order.query.filter_by(user_id=user_id, id=order_id).first()
+
+            if not order:
+                return jsonify([{'error': 'No order found for this user'}]), 404
+
+            order.status = status
+            db.session.commit()
+
+            return jsonify({
+                'message': 'Order status updated successfully',
+                'order': OrderSchema().dump(order)
+            }), 200
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify([{'error': str(e)}]), 500
+
+
+    def update_delivered(self, user_id, order_id, delivered):
+        """Updating delivery status"""
+        try:
+            order = Order.query.filter_by(user_id=user_id, id=order_id).first()
+
+            if not order:
+                return jsonify([{'error': 'No order found for this user'}]), 404
+
+            order.delivered = delivered
+            db.session.commit()
+
+            return jsonify({
+                'message': 'Delivery status updated successfully',
+                'order': OrderSchema().dump(order)
+            }), 200
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify([{'error': str(e)}]), 500
+       
+    
+    def update_paid(self, user_id,order_id, paid):
+        """Update the most recent unpaid order's payment status for a specific user"""
+        try:
+        
+            order = Order.query.filter_by(user_id=user_id,id = order_id, paid=False).order_by(Order.created_at.desc()).first()
+
+            if not order:
+                return jsonify([{'error': 'No unpaid order found for this user'}]), 404
+
+            order.paid = paid
+            db.session.commit()
+
+            return jsonify({
+                'message': 'Payment status updated successfully',
+                'order':OrderSchema().dump(order)
+            }), 200
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify([{'error': str(e)}]), 500

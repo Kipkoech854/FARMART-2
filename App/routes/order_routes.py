@@ -46,7 +46,7 @@ def create_order():
 
 @Order_bp.route('/all/<string:id>', methods=['GET'])
 def past_orders(id):
-    results = Order.query.filter_by(user_id=id).all()
+    results = Order.query.filter_by(user_id=id).order_by(Order.created_at.desc()).all()
 
     if not results:
         return jsonify([{'error': 'empty order history'}]), 404
@@ -58,7 +58,7 @@ def pending_orders(id):
     results = Order.query.filter(
         Order.user_id.like(f'%{id}%'),
         Order.status.ilike('%pending%')
-    ).all()
+    ).order_by(Order.created_at.desc()).all()
 
     if not results:
         return jsonify([{'error': 'No pending orders available'}]), 404
@@ -70,7 +70,7 @@ def confirmed_orders(id):
     results = Order.query.filter(
         Order.user_id.like(f'%{id}%'),
         Order.status.ilike('%confirmed%')
-    ).all()
+    ).order_by(Order.created_at.desc()).all()
 
     if not results:
         return jsonify([{'error': 'No pending orders available'}]), 404
@@ -88,7 +88,7 @@ def delivered_orders(id):
     is_delivered = delivered == 'true'
     
 
-    results = Order.query.filter_by(user_id=id, delivered=is_delivered).all()
+    results = Order.query.filter_by(user_id=id, delivered=is_delivered).order_by(Order.created_at.desc()).all()
 
     if not results:
         return jsonify([{
@@ -106,7 +106,7 @@ def Paid_orders(id):
     is_paid = paid == 'true'
     
 
-    results = Order.query.filter_by(user_id=id, paid=is_paid).all()
+    results = Order.query.filter_by(user_id=id, paid=is_paid).order_by(Order.created_at.desc()).all()
 
     if not results:
         return jsonify([{
@@ -114,3 +114,27 @@ def Paid_orders(id):
         }]), 404
 
     return jsonify(OrderSchema(many=True).dump(results)), 200
+
+@Order_bp.route('/Status/<string:userid>/<string:orderid>', methods=['PUT'])
+def status_update(userid, orderid):
+    order_service = OrderService()
+    status = request.args.get('status', 'pending').lower()
+
+    if status not in ['pending', 'confirmed', 'rejected']:
+        return jsonify([{'error': 'Invalid status value'}]), 400
+
+    return order_service.update_status(user_id=userid, order_id=orderid, status=status)
+
+@Order_bp.route('/DeliveryStatus/<string:userid>/<string:orderid>', methods=['PUT'])
+def delivery_status_update(userid, orderid):
+    order_service = OrderService()
+    delivered = request.args.get('delivered', 'false').lower() == 'true'
+
+    return order_service.update_delivered(user_id=userid, order_id=orderid, delivered=delivered)
+
+@Order_bp.route('/PaymentStatus/<string:userid>/<string:orderid>', methods=['PUT'])
+def payment_status_update(userid, orderid):
+    order_service = OrderService()
+    paid = request.args.get('paid', 'false').lower() == 'true'
+
+    return order_service.update_paid(user_id=userid, order_id=orderid, paid=paid)    
