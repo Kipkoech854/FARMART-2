@@ -18,7 +18,7 @@ class Feedback(db.Model):
 
     
     rating = db.Column(db.Integer, nullable = False)
-    comment = db.Column(db.String, nullable = True)
+    comment = db.Column(db.String, nullable = True) 
     image_url = db.Column(db.String(255))
 
 
