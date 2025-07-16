@@ -9,7 +9,7 @@ def create_app():
     bcrypt.init_app(app)
 
     with app.app_context():
-        from App import models  # this ensures models are registered
+        from App import models  
 
     from App.routes.Farmer_routes import farmer_routes
     app.register_blueprint(farmer_routes)
