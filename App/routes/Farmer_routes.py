@@ -7,7 +7,7 @@ from App.extensions import db
 
 farmer_routes = Blueprint('farmer_routes', __name__)
 
-# REGISTER FARMER
+
 @farmer_routes.route('/farmers/register', methods=['POST'])
 def register_farmer():
     data = request.json
@@ -28,7 +28,7 @@ def register_farmer():
         phone=data.get('phone'),
         profile_picture=data.get('profile_picture')
     )
-    new_farmer.set_password(password)  # 🔒 Hash password
+    new_farmer.set_password(password) 
 
     db.session.add(new_farmer)
     db.session.commit()
@@ -41,7 +41,7 @@ def register_farmer():
         }
     }), 201
 
-# LOGIN FARMER
+
 @farmer_routes.route('/farmers/login', methods=['POST'])
 def login_farmer():
     data = request.json
@@ -60,7 +60,7 @@ def login_farmer():
         }), 200
     return jsonify({"error": "Invalid credentials"}), 401
 
-# UPDATE FARMER
+
 @farmer_routes.route('/farmers/<int:id>', methods=['PUT'])
 def update_farmer(id):
     farmer = Farmer.query.get(id)
@@ -73,14 +73,14 @@ def update_farmer(id):
     farmer.phone = data.get('phone', farmer.phone)
     farmer.profile_picture = data.get('profile_picture', farmer.profile_picture)
     
-    # Optional password update
+   
     if data.get('password'):
         farmer.set_password(data.get('password'))
 
     db.session.commit()
     return jsonify({"message": "Farmer updated", "farmer": farmer.username})
 
-# GET FARMER PROFILE
+
 @farmer_routes.route('/farmers/<int:id>', methods=['GET'])
 def get_farmer(id):
     farmer = Farmer.query.get(id)
@@ -95,7 +95,6 @@ def get_farmer(id):
         "profile_picture": farmer.profile_picture
     })
 
-# DELETE FARMER
 @farmer_routes.route('/farmers/<int:id>', methods=['DELETE'])
 def delete_farmer(id):
     farmer = Farmer.query.get(id)
@@ -106,7 +105,7 @@ def delete_farmer(id):
     db.session.commit()
     return jsonify({"message": "Farmer account deleted"})
 
-# GET FARMER'S ANIMALS
+
 @farmer_routes.route('/farmers/<int:id>/animals', methods=['GET'])
 def get_farmer_animals(id):
     animals = Animal.query.filter_by(farmer_id=id).all()
@@ -121,7 +120,7 @@ def get_farmer_animals(id):
     } for a in animals]
     return jsonify({"animals": animal_list})
 
-# GET FEEDBACK FOR FARMER
+
 @farmer_routes.route('/farmers/<int:id>/feedback', methods=['GET'])
 def get_farmer_feedback(id):
     feedbacks = Feedback.query.filter_by(farmer_id=id).all()
