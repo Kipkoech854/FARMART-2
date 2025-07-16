@@ -96,3 +96,21 @@ def delivered_orders(id):
         }]), 404
 
     return jsonify(OrderSchema(many=True).dump(results)), 200
+
+
+@Order_bp.route('/Paid/<string:id>', methods=['GET'])
+def Paid_orders(id):
+    paid = request.args.get('paid', 'false').lower()
+
+    
+    is_paid = paid == 'true'
+    
+
+    results = Order.query.filter_by(user_id=id, paid=is_paid).all()
+
+    if not results:
+        return jsonify([{
+            'error': 'no paid orders' if is_paid else 'no unpaid orders'
+        }]), 404
+
+    return jsonify(OrderSchema(many=True).dump(results)), 200
