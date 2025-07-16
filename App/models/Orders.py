@@ -1,11 +1,10 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Numeric
-from flask_marshmallow import Marshmallow
 from datetime import datetime  
 
 db = SQLAlchemy()
-ma = Marshmallow()
+
 
 class Order(db.Model):
     __tablename__ = 'orders'
@@ -32,29 +31,6 @@ class OrderItem(db.Model):
     price_at_order_time = db.Column(Numeric(10,2), nullable = False)
 
 
-class OrderItemSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = OrderItem
-        include_fk = True
-
-    id = ma.auto_field()
-    order_id = ma.auto_field()
-    animal_id = ma.auto_field()
-    quantity = ma.auto_field()
-    price_at_order_time = ma.auto_field()
-
-
-class OrderSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = Order
-        include_fk = True
-
-    id = ma.auto_field()
-    user_id = ma.auto_field()
-    status = ma.auto_field()
-    created_at = ma.auto_field()
-    
-    items = ma.Nested(OrderItemSchema, many=True) 
 
 
 

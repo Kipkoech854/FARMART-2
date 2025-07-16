@@ -13,5 +13,5 @@ def Orders():
 
  
 
-if __name__ = 'main':
+if __name__ == 'main':
     app.run(debug = True)
