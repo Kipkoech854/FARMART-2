@@ -1,7 +1,7 @@
 from flask import Flask
 from App.extensions import ma
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from App.models.Animals import Animal,Animalimages
+from App.models.Animals import Animal,AnimalImages
 
 
 
@@ -24,7 +24,7 @@ class AnimalSchema(SQLAlchemyAutoSchema):
 
 class AnimalimagesSchema(SQLAlchemyAutoSchema):
     class Meta:
-        model = Animalimages
+        model = AnimalImages
         include_fk = True
 
     id = ma.auto_field()

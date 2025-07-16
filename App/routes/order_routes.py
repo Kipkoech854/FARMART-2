@@ -39,7 +39,7 @@ def create_order():
         if not all([animal_id, quantity, price]):
             continue 
 
-        order_service.create_order_item(order.id, animal_id, quantity, price)
+        order_service.create_order_Item(order.id, animal_id, quantity, price)
 
     return jsonify(OrderSchema().dump(order)), 201
 
