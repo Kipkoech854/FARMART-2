@@ -4,6 +4,9 @@ from flask_marshmallow import Marshmallow
 db = SQLAlchemy()
 ma = Marshmallow()
 
+from flask import Flask
+from App import db
+
 class Farmers(db.Model):
     __tablename__ = 'farmers'
 
