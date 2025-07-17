@@ -3,6 +3,7 @@ from App.services.Order_services import OrderService
 from App.Schema.Order_schema import OrderSchema
 from decimal import Decimal
 from App.models.Orders import Order, OrderItem
+import requests
 
 Order_bp = Blueprint('Order_bp', __name__)
 
@@ -10,7 +11,6 @@ Order_bp = Blueprint('Order_bp', __name__)
 def create_order():
     order_service = OrderService()
     data = request.get_json()
-    
 
     if not data:
         return jsonify([{'error': 'Missing request body'}]), 400
@@ -19,7 +19,6 @@ def create_order():
     amount = data['amount']
     items = data['items']
 
-   
     if not user_id:
         return jsonify([{'error': 'Missing user_id'}]), 400
     if not amount:
@@ -27,7 +26,6 @@ def create_order():
     if not items or not isinstance(items, list):
         return jsonify([{'error': 'Invalid or empty items list'}]), 400
 
-    
     order, status = order_service.create_order(user_id, amount)
     if status != 201:
         return order, status
@@ -38,11 +36,32 @@ def create_order():
         price = item.get('price_at_order_time')
 
         if not all([animal_id, quantity, price]):
-            continue 
+            continue
 
-        order_service.create_order_Item(order.id, animal_id, quantity, price)
+        result, item_status = order_service.create_order_Item(order.id, animal_id, quantity, price)
+        if item_status != 201:
+            return result, item_status  
+
+    
+    payload = {
+        'id': order.id,
+        'created_at': str(order.created_at),
+        'amount': str(order.amount),
+        'items': items
+    }
+
+    try:
+        mail_response = requests.post(
+            f'http://127.0.0.1:5555/api/Mail/Order-User/{user_id}',
+            json=payload
+        )
+        if mail_response.status_code != 200:
+            print("Mail service error:", mail_response.text)
+    except Exception as e:
+        print("Mail request failed:", e)
 
     return jsonify(OrderSchema().dump(order)), 201
+
 
 @Order_bp.route('/all/<string:id>', methods=['GET'])
 def past_orders(id):
