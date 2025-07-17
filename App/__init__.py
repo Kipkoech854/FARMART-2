@@ -1,12 +1,10 @@
 from flask import Flask
-from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_jwt_extended import JWTManager
-from .Config import config_by_name
-from App.extensions import ma, db, mail, migrate, jwt, cors
 from dotenv import load_dotenv
 import os
+
+from App.extensions import db, ma, migrate, jwt, cors, mail, bcrypt
+from flask_jwt_extended import JWTManager
+from .Config import config_by_name
 
 load_dotenv()
 
@@ -23,11 +21,12 @@ def create_app(config_name='development'):
 
     # Initialize extensions
     db.init_app(app)
-    migrate.init_app(app, db)
     ma.init_app(app)
+    migrate.init_app(app, db)
     jwt.init_app(app)
     cors.init_app(app)
     mail.init_app(app)
+    bcrypt.init_app(app)  # added from incoming branch
 
     with app.app_context():
         db.create_all()
@@ -37,10 +36,12 @@ def create_app(config_name='development'):
     from .routes.Mail_routes import Mail_bp
     from .routes.animal import animals_blueprint
     from .routes.Auth_routes import auth_bp
+    from .routes.Farmer_routes import farmer_routes  
 
     app.register_blueprint(Order_bp, url_prefix='/api/Order')
     app.register_blueprint(Mail_bp, url_prefix='/api/Mail')
     app.register_blueprint(animals_blueprint, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(farmer_routes, url_prefix='/api/farmers')
 
     return app

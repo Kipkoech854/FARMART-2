@@ -4,14 +4,14 @@ from App.models.Users import User
 class Feedback(db.Model):
     __tablename__ = 'feedback'
 
-    id = db.Column(db.String, primary_key=True)
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
-    farmer_id = db.Column(db.String, db.ForeignKey('farmers.id'), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    farmer_id = db.Column(db.Integer, db.ForeignKey('farmers.id'), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.String, nullable=True)
     image_url = db.Column(db.String(255))
 
-    # Relationships (assuming you have Farmer and User models with back_populates set)
+    # Relationships
     user = db.relationship("User", back_populates="feedbacks")
     farmer = db.relationship("Farmer", back_populates="feedbacks")
 
@@ -25,7 +25,6 @@ class Feedback(db.Model):
             "image_url": self.image_url
         }
 
-
 class FeedbackSchema(ma.SQLAlchemySchema):
     class Meta:
         model = Feedback
@@ -38,5 +37,4 @@ class FeedbackSchema(ma.SQLAlchemySchema):
     comment = ma.auto_field()
     image_url = ma.auto_field()
 
-    
     user = ma.Nested("UserSchema", only=("id", "username", "profile_picture"))
