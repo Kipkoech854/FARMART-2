@@ -10,6 +10,7 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 Order_bp = Blueprint('Order_bp', __name__)
 
 @Order_bp.route('/create', methods=['POST'])
+@jwt_required()
 def create_order():
     order_service = OrderService()
     data = request.get_json()
@@ -17,7 +18,7 @@ def create_order():
     if not data:
         return jsonify([{'error': 'Missing request body'}]), 400
 
-    user_id = data['user_id']
+    user_id = get_jwt_identity()
     amount = data['amount']
     items = data['items']
 
@@ -53,12 +54,19 @@ def create_order():
     }
 
     try:
-        mail_response = requests.post(
+        User_mail_response = requests.post(
             f'http://127.0.0.1:5555/api/Mail/Order-User/{user_id}',
             json=payload
         )
-        if mail_response.status_code != 200:
-            print("Mail service error:", mail_response.text)
+        if User_mail_response.status_code != 200:
+            print("Mail service error:", User_mail_response.text)
+        
+        farmer_mail_response = requests.post(
+            f'http://127.0.0.1:5555/api/Mail/Order-farmer',
+            json=payload
+        )
+        if farmer_mail_response.status_code != 200:
+            print('Mail servive eror:', farmer_mail_response.text)
     except Exception as e:
         print("Mail request failed:", e)
 
