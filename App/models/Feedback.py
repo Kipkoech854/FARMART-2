@@ -1,17 +1,15 @@
-
-from App import db
-
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
-
-db = SQLAlchemy()
-ma = Marshmallow()
-
-
+from App.extensions import db
 
 class Feedback(db.Model):
-
     __tablename__ = 'feedback'
+
+    id = db.Column(db.String, primary_key=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    farmer_id = db.Column(db.String, db.ForeignKey('farmers.id'), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.String, nullable=True)
+    image_url = db.Column(db.String(255))
+
 
     id = db.Column(db.String, primary_key = True)
     user_id = db.Column(db.string, db.ForeignKey('users.id'), nullable = False)
@@ -49,4 +47,5 @@ class FeedbackSchema(ma.SQLAlchemySchema):
     image_url = ma.auto_field()     
 
     user = ma.Nested("UserSchema", only=("id", "username", "profile_picture"))   
+
 
