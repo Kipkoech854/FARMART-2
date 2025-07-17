@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from App.extensions import db
 from App.models.Animals import Animal, AnimalImage
 from App.Schema.animal_schemas import AnimalSchema, AnimalImageSchema
+import requests
 
 
 animals_blueprint = Blueprint('animals', __name__)
@@ -17,7 +18,8 @@ def create_animal():
     data = request.get_json()
     if not data:
         return jsonify({"error": "No JSON received or Content-Type not set to application/json"}), 400
-    user_id =get_jwt_identity()
+
+    user_id = get_jwt_identity()
     current_user_id = user_id
     print("Current user ID:", current_user_id)
 
@@ -41,12 +43,29 @@ def create_animal():
             db.session.add(new_image)
         db.session.commit()
 
+        # Fetch updated animal with images
         animal_with_images = Animal.query.get(new_animal.id)
 
-        return jsonify(animal_schema.dump(animal_with_images)), 201
+        # Prepare payload for email
+        payload = animal_schema.dump(animal_with_images)
+        payload['farmer_id'] = current_user_id
+
+        # Send confirmation email
+        try:
+            mail_response = requests.post(
+                'http://127.0.0.1:5555/api/Mail/createAnimalconformation',
+                json=payload
+            )
+            if mail_response.status_code != 200:
+                print("Failed to send confirmation email:", mail_response.text)
+
+        except Exception as e:
+            print("Error sending email:", e)
+
+        return jsonify(payload), 201
 
     except Exception as e:
-        print("Error:", str(e))
+        print("Database or creation error:", str(e))
         return jsonify({"error": str(e)}), 500
 
 
