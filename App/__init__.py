@@ -11,7 +11,16 @@ def create_app(config_name='development'):
     jwt.init_app(app)
     cors.init_app(app)
 
+
     from .routes.animal import animals_blueprint
     app.register_blueprint(animals_blueprint, url_prefix='/api')
+
+    # Register blueprints or routes here
+    from App import models  # Assuming you have a routes module
+    # from .routes import main as main_blueprint
+    from App.routes.Auth_routes import auth_bp
+    app.register_blueprint(auth_bp, url_prefix='/auth') 
+    # app.register_blueprint(main_blueprint)
+
 
     return app
