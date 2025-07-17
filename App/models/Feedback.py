@@ -1,11 +1,13 @@
 from App.extensions import db, ma
 from App.models.Users import User
 from App.models.Farmers import Farmer
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
 
 class Feedback(db.Model):
     __tablename__ = 'feedback'
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     farmer_id = db.Column(db.Integer, db.ForeignKey('farmers.id'), nullable=False)
     rating = db.Column(db.Integer, nullable=False)

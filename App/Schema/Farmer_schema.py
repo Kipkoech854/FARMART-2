@@ -12,5 +12,4 @@ class FarmersSchema(ma.SQLAlchemySchema):
     email = ma.auto_field()
     phone = ma.auto_field()
     username = ma.auto_field()
-    password = ma.auto_field()
     profile_picture = ma.auto_field()

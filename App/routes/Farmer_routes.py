@@ -4,7 +4,9 @@ from App.models.Farmers import Farmer
 from App.models.Animals import Animal
 from App.models.Feedback import Feedback
 from App.extensions import db
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+
+
 
 farmer_routes = Blueprint('farmer_routes', __name__)
 
@@ -64,8 +66,10 @@ def login_farmer():
     return jsonify({"error": "Invalid credentials"}), 401
 
 
-@farmer_routes.route('/farmers/<int:id>', methods=['PUT'])
-def update_farmer(id):
+@farmer_routes.route('/farmers', methods=['PUT'])
+@jwt_required()
+def update_farmer():
+    id = get_jwt_identity()
     farmer = Farmer.query.get(id)
     if not farmer:
         return jsonify({"error": "Farmer not found"}), 404
@@ -84,8 +88,10 @@ def update_farmer(id):
     return jsonify({"message": "Farmer updated", "farmer": farmer.username})
 
 
-@farmer_routes.route('/farmers/<int:id>', methods=['GET'])
-def get_farmer(id):
+@farmer_routes.route('/farmers', methods=['GET'])
+@jwt_required()
+def get_farmer():
+    id = get_jwt_identity()
     farmer = Farmer.query.get(id)
     if not farmer:
         return jsonify({"error": "Farmer not found"}), 404
@@ -98,8 +104,10 @@ def get_farmer(id):
         "profile_picture": farmer.profile_picture
     })
 
-@farmer_routes.route('/farmers/<int:id>', methods=['DELETE'])
-def delete_farmer(id):
+@farmer_routes.route('/farmers', methods=['DELETE'])
+@jwt_required()
+def delete_farmer():
+    id = get_jwt_identity()
     farmer = Farmer.query.get(id)
     if not farmer:
         return jsonify({"error": "Farmer not found"}), 404
@@ -109,8 +117,10 @@ def delete_farmer(id):
     return jsonify({"message": "Farmer account deleted"})
 
 
-@farmer_routes.route('/farmers/<int:id>/animals', methods=['GET'])
-def get_farmer_animals(id):
+@farmer_routes.route('/farmers/animals', methods=['GET'])
+@jwt_required()
+def get_farmer_animals():
+    id = get_jwt_identity()
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
 
@@ -135,8 +145,10 @@ def get_farmer_animals(id):
         })
 
 
-@farmer_routes.route('/farmers/<int:id>/feedback', methods=['GET'])
-def get_farmer_feedback(id):
+@farmer_routes.route('/farmers/feedback', methods=['GET'])
+@jwt_required()
+def get_farmer_feedback():
+    id = get_jwt_identity()
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 5, type=int)
 

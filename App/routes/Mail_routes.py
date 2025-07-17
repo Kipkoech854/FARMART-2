@@ -33,16 +33,5 @@ def Send_order_confirmation_user(userid):
         return jsonify([{'error': str(e)}]), 500
 
 
-@Mail_bp.route("/test-email")
-def test_email():
-    from flask_mail import Message
-    msg = Message("Test Email",
-                  sender="arvinkipko@gmail.com",
-                  recipients=["gideonkipkoech854@gmail.com"])
-    msg.body = "If you get this, it works!"
-    try:
-        mail.send(msg)
-        return "✅ Email sent"
-    except Exception as e:
-        print("❌ Send failed:", e)
-        return f"❌ Failed: {e}"
+@Mail_bp.route("/createAnimalconformation")
+def 

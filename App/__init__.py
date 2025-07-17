@@ -1,6 +1,7 @@
 from flask import Flask
 from dotenv import load_dotenv
 import os
+from datetime import timedelta
 
 from App.extensions import db, ma, migrate, jwt, cors, mail, bcrypt
 from flask_jwt_extended import JWTManager
@@ -10,7 +11,8 @@ load_dotenv()
 
 def create_app(config_name='testing'):
     app = Flask(__name__)
-
+    
+    app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
     # Load configuration
     app.config.from_object(config_by_name[config_name])
     app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -36,12 +38,14 @@ def create_app(config_name='testing'):
     from .routes.Mail_routes import Mail_bp
     from .routes.animal import animals_blueprint
     from .routes.Auth_routes import auth_bp
-    from .routes.Farmer_routes import farmer_routes  
+    from .routes.Farmer_routes import farmer_routes
+    from .routes.User_routes import user_bp  
 
     app.register_blueprint(Order_bp, url_prefix='/api/Order')
     app.register_blueprint(Mail_bp, url_prefix='/api/Mail')
     app.register_blueprint(animals_blueprint, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(farmer_routes, url_prefix='/api/farmers')
+    app.register_blueprint(user_bp, url_prefix='/api/User')
 
     return app

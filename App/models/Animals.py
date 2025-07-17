@@ -1,9 +1,11 @@
 from App.extensions import db
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
 
 class Animal(db.Model):
     __tablename__ = 'animals'
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = db.Column(db.String(120), nullable=False)
     type = db.Column(db.String(100), nullable=False)
     breed = db.Column(db.String(100), nullable=False)
@@ -19,6 +21,7 @@ class Animal(db.Model):
 class AnimalImage(db.Model):  
     __tablename__ = 'animal_images'
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     url = db.Column(db.String(255), nullable=False)
-    animal_id = db.Column(db.Integer, db.ForeignKey('animals.id'), nullable=False)
+    animal_id = db.Column(db.String(36), db.ForeignKey('animals.id'), nullable=False)
+

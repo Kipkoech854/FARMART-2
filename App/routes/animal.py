@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from App.extensions import db
 from App.models.Animals import Animal, AnimalImage
-from App.Schema.animal_schemas import AnimalSchema, AnimalimagesSchema
+from App.Schema.animal_schemas import AnimalSchema, AnimalImageSchema
+
 
 animals_blueprint = Blueprint('animals', __name__)
 
@@ -12,41 +13,55 @@ animals_schema = AnimalSchema(many=True)
 @animals_blueprint.route('/animals', methods=['POST'])
 @jwt_required()
 def create_animal():
+    print(">>> Entered create_animal route")
     data = request.get_json()
-    current_user_id = get_jwt_identity()
-    
-    new_animal = Animal(
-        name=data.get('name'),
-        type=data.get('type'),
-        breed=data.get('breed'),
-        age=data.get('age'),
-        price=data.get('price'),
-        description=data.get('description'),
-        farmer_id=current_user_id
-    )
-    
-    db.session.add(new_animal)
-    db.session.commit()
-    
-    if 'images' in data and data['images']:
-        for image_url in data['images']:
-            new_image = Animalimages(url=image_url, animal_id=new_animal.id)
+    if not data:
+        return jsonify({"error": "No JSON received or Content-Type not set to application/json"}), 400
+    user_id =get_jwt_identity()
+    current_user_id = user_id
+    print("Current user ID:", current_user_id)
+
+    try:
+        new_animal = Animal(
+            name=data.get('name'),
+            type=data.get('type'),
+            breed=data.get('breed'),
+            age=data.get('age'),
+            price=data.get('price'),
+            description=data.get('description'),
+            is_available=True,
+            farmer_id=current_user_id
+        )
+        db.session.add(new_animal)
+        db.session.commit()
+
+        image_urls = data.get('images', [])
+        for url in image_urls:
+            new_image = AnimalImage(url=url, animal_id=new_animal.id)
             db.session.add(new_image)
         db.session.commit()
-    
-    return animal_schema.jsonify(new_animal), 201
+
+        animal_with_images = Animal.query.get(new_animal.id)
+
+        return jsonify(animal_schema.dump(animal_with_images)), 201
+
+    except Exception as e:
+        print("Error:", str(e))
+        return jsonify({"error": str(e)}), 500
+
+
 
 @animals_blueprint.route('/animals', methods=['GET'])
 def get_all_animals():
     animals = Animal.query.filter_by(is_available=True).all()
     return jsonify(animals_schema.dump(animals)), 200
 
-@animals_blueprint.route('/animals/<int:animal_id>', methods=['GET'])
+@animals_blueprint.route('/animals/<string:animal_id>', methods=['GET'])
 def get_animal(animal_id):
     animal = Animal.query.get_or_404(animal_id)
     return animal_schema.jsonify(animal), 200
 
-@animals_blueprint.route('/animals/<int:animal_id>', methods=['PUT'])
+@animals_blueprint.route('/animals/<string:animal_id>', methods=['PUT'])
 @jwt_required()
 def update_animal(animal_id):
     animal = Animal.query.get_or_404(animal_id)
@@ -74,7 +89,7 @@ def update_animal(animal_id):
     db.session.commit()
     return animal_schema.jsonify(animal), 200
 
-@animals_blueprint.route('/animals/<int:animal_id>', methods=['DELETE'])
+@animals_blueprint.route('/animals/<string:animal_id>', methods=['DELETE'])
 @jwt_required()
 def delete_animal(animal_id):
     animal = Animal.query.get_or_404(animal_id)

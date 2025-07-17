@@ -20,10 +20,11 @@ def role_required(*required_roles):
         return decorator
     return wrapper
 
-@user_bp.route('/user/<int:user_id>', methods=['PATCH'])
+@user_bp.route('/user', methods=['PATCH'])
 @jwt_required()
 @role_required('admin')
 def update_user(user_id):
+    user_id = get_jwt_identity()
     data = request.get_json()
     user = User.query.get(user_id)
 
@@ -42,10 +43,11 @@ def update_user(user_id):
     db.session.commit()
     return jsonify({"msg": "User updated successfully"}), 200
 
-@user_bp.route('/user/<int:user_id>', methods=['DELETE'])
+@user_bp.route('/user', methods=['DELETE'])
 @jwt_required()
-@role_required('admin', 'customer')
-def delete_user(user_id):
+@role_required('admin', 'customer') 
+def delete_user():
+    user_id = get_jwt_identity()
     user = User.query.get(user_id)
 
     if not user:
