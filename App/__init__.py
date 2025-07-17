@@ -8,7 +8,7 @@ from .Config import config_by_name
 
 load_dotenv()
 
-def create_app(config_name='development'):
+def create_app(config_name='testing'):
     app = Flask(__name__)
 
     # Load configuration

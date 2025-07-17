@@ -1,5 +1,5 @@
 from App.extensions import ma
-from App.models.Animals import Animal, Animalimages
+from App.models.Animals import Animal, AnimalImage
 
 class AnimalSchema(ma.SQLAlchemySchema):
     class Meta:
@@ -18,7 +18,7 @@ class AnimalSchema(ma.SQLAlchemySchema):
 
 class AnimalimagesSchema(ma.SQLAlchemySchema):
     class Meta:
-        model = Animalimages
+        model = AnimalImage
         include_fk = True
     id = ma.auto_field()
     url = ma.auto_field()

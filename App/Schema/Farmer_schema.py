@@ -1,12 +1,12 @@
 from flask import Flask
 from App.extensions import ma
-from App.models.Farmers import Farmers
+from App.models.Farmers import Farmer
 
 
 
 class FarmersSchema(ma.SQLAlchemySchema):
     class Meta:
-        model = Farmers  
+        model = Farmer
 
     id = ma.auto_field()
     email = ma.auto_field()

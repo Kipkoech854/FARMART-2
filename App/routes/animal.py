@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from App.extensions import db
-from App.models.Animals import Animal, Animalimages
+from App.models.Animals import Animal, AnimalImage
 from App.Schema.animal_schemas import AnimalSchema, AnimalimagesSchema
 
 animals_blueprint = Blueprint('animals', __name__)

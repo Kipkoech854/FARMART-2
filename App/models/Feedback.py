@@ -1,5 +1,6 @@
 from App.extensions import db, ma
 from App.models.Users import User
+from App.models.Farmers import Farmer
 
 class Feedback(db.Model):
     __tablename__ = 'feedback'
@@ -11,9 +12,10 @@ class Feedback(db.Model):
     comment = db.Column(db.String, nullable=True)
     image_url = db.Column(db.String(255))
 
-    # Relationships
+  
     user = db.relationship("User", back_populates="feedbacks")
     farmer = db.relationship("Farmer", back_populates="feedbacks")
+
 
     def to_dict(self):
         return {
@@ -25,16 +27,3 @@ class Feedback(db.Model):
             "image_url": self.image_url
         }
 
-class FeedbackSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = Feedback
-        include_fk = True
-
-    id = ma.auto_field()
-    user_id = ma.auto_field()
-    farmer_id = ma.auto_field()
-    rating = ma.auto_field()
-    comment = ma.auto_field()
-    image_url = ma.auto_field()
-
-    user = ma.Nested("UserSchema", only=("id", "username", "profile_picture"))
