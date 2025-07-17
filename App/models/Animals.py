@@ -2,6 +2,7 @@ from App.extensions import db
 
 class Animal(db.Model):
     __tablename__ = 'animals'
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     type = db.Column(db.String(100), nullable=False)
@@ -10,11 +11,15 @@ class Animal(db.Model):
     price = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text)
     is_available = db.Column(db.Boolean, default=True)
-    farmer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    images = db.relationship("Animalimages", backref="animal", cascade="all, delete-orphan")
 
-class Animalimages(db.Model):
+    farmer_id = db.Column(db.String, db.ForeignKey('farmers.id'), nullable=False)
+
+    images = db.relationship("AnimalImage", backref="animal", cascade="all, delete-orphan")
+
+class AnimalImage(db.Model):  # Clean class name: singular PascalCase
     __tablename__ = 'animal_images'
+
     id = db.Column(db.Integer, primary_key=True)
     url = db.Column(db.String(255), nullable=False)
     animal_id = db.Column(db.Integer, db.ForeignKey('animals.id'), nullable=False)
+

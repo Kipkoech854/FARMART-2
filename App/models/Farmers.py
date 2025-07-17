@@ -1,8 +1,6 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
+from flask import Flask
+from App.extensions import db
 
-db = SQLAlchemy()
-ma = Marshmallow()
 
 from flask import Flask
 from App import db
@@ -17,14 +15,3 @@ class Farmers(db.Model):
     password = db.Column(db.String(255), nullable=False)
     profile_picture = db.Column(db.String(255))
 
-
-class FarmersSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = Farmers  
-
-    id = ma.auto_field()
-    email = ma.auto_field()
-    phone = ma.auto_field()
-    username = ma.auto_field()
-    password = ma.auto_field()
-    profile_picture = ma.auto_field()

@@ -1,26 +1,46 @@
 from flask import Flask
-from .extensions import db, migrate, jwt, cors
+from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_jwt_extended import JWTManager
 from .Config import config_by_name
+from App.extensions import ma, db, mail, migrate, jwt, cors
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 def create_app(config_name='development'):
     app = Flask(__name__)
-    app.config.from_object(config_by_name[config_name])
 
+    # Load configuration
+    app.config.from_object(config_by_name[config_name])
+    app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+    app.config['MAIL_PORT'] = 587
+    app.config['MAIL_USE_TLS'] = True
+    app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+    app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+
+    # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
+    ma.init_app(app)
     jwt.init_app(app)
     cors.init_app(app)
+    mail.init_app(app)
 
+    with app.app_context():
+        db.create_all()
 
+    # Register blueprints
+    from .routes.order_routes import Order_bp
+    from .routes.Mail_routes import Mail_bp
     from .routes.animal import animals_blueprint
+    from .routes.Auth_routes import auth_bp
+
+    app.register_blueprint(Order_bp, url_prefix='/api/Order')
+    app.register_blueprint(Mail_bp, url_prefix='/api/Mail')
     app.register_blueprint(animals_blueprint, url_prefix='/api')
-
-    # Register blueprints or routes here
-    from App import models  # Assuming you have a routes module
-    # from .routes import main as main_blueprint
-    from App.routes.Auth_routes import auth_bp
-    app.register_blueprint(auth_bp, url_prefix='/auth') 
-    # app.register_blueprint(main_blueprint)
-
+    app.register_blueprint(auth_bp, url_prefix='/auth')
 
     return app
