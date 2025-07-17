@@ -1,6 +1,4 @@
-from flask import Flask
 from App.extensions import db
-
 
 class Animal(db.Model):
     __tablename__ = 'animals'
@@ -14,15 +12,14 @@ class Animal(db.Model):
     description = db.Column(db.Text)
     is_available = db.Column(db.Boolean, default=True)
 
-
     farmer_id = db.Column(db.String, db.ForeignKey('farmers.id'), nullable=False)
 
-    images = db.relationship("AnimalImages", backref="animal", lazy=True)
+    images = db.relationship("AnimalImage", backref="animal", cascade="all, delete-orphan")
 
-
-class AnimalImages(db.Model):
+class AnimalImage(db.Model):  # Clean class name: singular PascalCase
     __tablename__ = 'animal_images'
 
     id = db.Column(db.Integer, primary_key=True)
     url = db.Column(db.String(255), nullable=False)
     animal_id = db.Column(db.Integer, db.ForeignKey('animals.id'), nullable=False)
+

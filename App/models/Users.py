@@ -1,5 +1,3 @@
-
-from flask_marshmallow import Marshmallow
 from App.extensions import db
 
 
@@ -13,3 +11,5 @@ class User(db.Model):
     role = db.Column(db.String(10), nullable=False)
     profile_picture = db.Column(db.String(255), nullable=True)
 
+    
+    feedbacks = db.relationship("Feedback", back_populates="user", cascade="all, delete-orphan")

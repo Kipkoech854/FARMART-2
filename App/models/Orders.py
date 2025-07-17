@@ -1,3 +1,4 @@
+from App import db
 from flask import Flask
 from sqlalchemy import Numeric
 from datetime import datetime 

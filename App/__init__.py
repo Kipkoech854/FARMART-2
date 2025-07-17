@@ -4,16 +4,10 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from .Config import config_by_name
-from App.extensions import ma, db
-from App.models import *
-from App.extensions import mail
+from App.extensions import ma, db, mail, migrate, jwt, cors
 from dotenv import load_dotenv
-import os  # Ensures all models are registered
+import os
 
-# Only define new extensions if they're not already in extensions.py
-migrate = Migrate()
-jwt = JWTManager()
-cors = CORS()
 load_dotenv()
 
 def create_app(config_name='development'):
@@ -27,7 +21,6 @@ def create_app(config_name='development'):
     app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
     app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 
-
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
@@ -36,16 +29,18 @@ def create_app(config_name='development'):
     cors.init_app(app)
     mail.init_app(app)
 
-    # Create all tables after models are loaded
-   
     with app.app_context():
         db.create_all()
 
     # Register blueprints
     from .routes.order_routes import Order_bp
     from .routes.Mail_routes import Mail_bp
+    from .routes.animal import animals_blueprint
+    from .routes.Auth_routes import auth_bp
 
     app.register_blueprint(Order_bp, url_prefix='/api/Order')
     app.register_blueprint(Mail_bp, url_prefix='/api/Mail')
+    app.register_blueprint(animals_blueprint, url_prefix='/api')
+    app.register_blueprint(auth_bp, url_prefix='/auth')
 
     return app

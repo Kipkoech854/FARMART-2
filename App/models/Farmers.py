@@ -2,6 +2,9 @@ from flask import Flask
 from App.extensions import db
 
 
+from flask import Flask
+from App import db
+
 class Farmers(db.Model):
     __tablename__ = 'farmers'
 
