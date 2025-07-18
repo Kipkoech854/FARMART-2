@@ -15,6 +15,8 @@ class Order(db.Model):
     paid = db.Column(db.Boolean, default = False)
     delivered = db.Column(db.Boolean, default = False)
     amount = db.Column(Numeric(10,2), nullable = False)
+    pickup_station = db.Column(db.String, nullable = True)
+    payment_method = db.Column(db.String, default='cash')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 

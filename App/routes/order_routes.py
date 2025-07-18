@@ -271,7 +271,55 @@ def delivery_status_update(userid, orderid):
 
 @Order_bp.route('/PaymentStatus/<string:userid>/<string:orderid>', methods=['PUT'])
 def payment_status_update(userid, orderid):
-    order_service = OrderService()
     paid = request.args.get('paid', 'false').lower() == 'true'
 
-    return order_service.update_paid(user_id=userid, order_id=orderid, paid=paid)    
+    order = Order.query.filter_by(user_id=userid, id=orderid).first()
+    if not order:
+        return {'error': 'Order not found'}, 404
+
+    order.paid = paid
+    db.session.commit()
+
+    order_data = {
+        'id': order.id,
+        'user_id': order.user_id,
+        'status': order.status,
+        'paid': order.paid,
+        'delivered': order.delivered,
+        'amount': str(order.amount),
+        'created_at': order.created_at.isoformat(),
+        'items': []
+    }
+
+    for item in order.items:
+        order_data['items'].append({
+            'id': item.id,
+            'order_id': item.order_id,
+            'animal_id': item.animal_id,
+            'quantity': item.quantity,
+            'price_at_order_time': str(item.price_at_order_time)
+        })
+
+    if paid:
+        try:
+            res = requests.post(
+                'http://127.0.0.1:5555/api/DeliveryMail/PaymentConfirmation-Farmer',
+                json=order_data
+            )
+            if res.status_code != 200:
+                return jsonify({'error':' Could not send payment confirmation to farmer'}), 500
+
+            response = requests.post(
+                "http://127.0.0.1:5555/api/DeliveryMail/PaymentConfirmation-User",
+                json=order_data
+            )
+            if response.status_code !=200:
+                return jsonify({'error': 'could not send payment cnfirmation to user'}), 500
+
+
+            return jsonify({'message':"payment confirmation to farmer sent sucessfully"}), 200 
+
+        except Exception as e:
+            return jsonify({'error': 'error trying to send email confrimation to farmer'}), 500
+
+    return jsonify(order_data), 200
