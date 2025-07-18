@@ -15,7 +15,7 @@ Status_mail_bp = Blueprint('Status_mail_bp', __name__)
 def Send_order_status_change_user():
     data = request.get_json()
     id = data['user_id']
-    print(f"{id}")
+
     if not data:
         return jsonify({'error': 'Invalid or no data to send to farmers'}), 400
 

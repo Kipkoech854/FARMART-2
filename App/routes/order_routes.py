@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from App.services.Order_services import OrderService
 from App.Schema.Order_schema import OrderSchema
 from decimal import Decimal
@@ -213,10 +213,61 @@ def status_update():
 
 @Order_bp.route('/DeliveryStatus/<string:userid>/<string:orderid>', methods=['PUT'])
 def delivery_status_update(userid, orderid):
-    order_service = OrderService()
     delivered = request.args.get('delivered', 'false').lower() == 'true'
 
-    return order_service.update_delivered(user_id=userid, order_id=orderid, delivered=delivered)
+  
+    order = Order.query.filter_by(id=orderid, user_id=userid).first()
+
+    if not order:
+        return jsonify({'error': 'Order not found'}), 404
+
+  
+    order.delivered = delivered
+    db.session.commit()
+
+    
+    order_data = {
+        'id': order.id,
+        'user_id': order.user_id,
+        'status': order.status,
+        'paid': order.paid,
+        'delivered': order.delivered,
+        'amount': str(order.amount),
+        'created_at': order.created_at.isoformat(),
+        'items': []
+    }
+
+    for item in order.items:
+        order_data['items'].append({
+            'id': item.id,
+            'order_id': item.order_id,
+            'animal_id': item.animal_id,
+            'quantity': item.quantity,
+            'price_at_order_time': str(item.price_at_order_time)
+        })
+  
+    if delivered:
+        try:
+            response = requests.post(
+                'http://127.0.0.1:5555/api/DeliveryMail/DeliveryMail-User',
+                json=order_data
+            )
+            if response.status_code != 200:
+                return jsonify({'error': 'Delivery email not sent to user'}), 500
+            
+        
+            res = requests.post(
+                'http://127.0.0.1:5555/api/DeliveryMail/DeliveryMail-Farmer',
+                json=order_data  
+                )
+
+            if res.status_code != 200:
+                return jsonify({'error': 'Delivery email not sent to farmer'}), 500    
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    return jsonify(order_data), 200
 
 @Order_bp.route('/PaymentStatus/<string:userid>/<string:orderid>', methods=['PUT'])
 def payment_status_update(userid, orderid):
