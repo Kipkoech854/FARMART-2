@@ -302,7 +302,7 @@ def send_payment_confirmation_user():
         return jsonify({'error': 'Missing required data'}), 400
 
     try:
-        # Fetch user details
+       
         user_response = requests.get(f"http://127.0.0.1:5555/api/Mailservice/Users/{user_id}")
         if user_response.status_code != 200:
             print('Failed to get user details:', user_response.text)
@@ -313,7 +313,7 @@ def send_payment_confirmation_user():
         username = user_data.get('username')
         print(f"Sending payment email to {recipient_email}")
 
-        # Build item details
+       
         item_lines = ""
         for item in items:
             item_lines += f"""
@@ -323,7 +323,7 @@ Quantity: {item.get('quantity')}
 Price at Order Time: KES {item.get('price_at_order_time')}
 """
 
-        # Compose email
+       
         msg = Message(
             subject='FARMART - Payment Confirmation',
             sender='arvinkipo@gmail.com',
