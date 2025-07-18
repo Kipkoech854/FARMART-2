@@ -21,9 +21,8 @@ def send_delivery_mail_user():
         return jsonify({'error': 'Invalid or no data to send to farmers'}), 400
 
     try:
-        user_response = requests.get(
-            f"http://127.0.0.1:5555/api/Mailservice/Users/{user_id}"
-        )
+      
+        user_response = requests.get(f"http://127.0.0.1:5555/api/Mailservice/Users/{user_id}")
         if user_response.status_code != 200:
             print('Failed to get user details:', user_response.text)
             return jsonify({'error': 'Failed to retrieve user information'}), 400
@@ -33,6 +32,7 @@ def send_delivery_mail_user():
         username = user_data.get('username')
         print(f"{recipient_email}")
 
+       
         response = requests.post(
             'http://127.0.0.1:5555/api/Mailservice/mail/farmer-item-details',
             json=data
@@ -43,15 +43,21 @@ def send_delivery_mail_user():
 
         farmers = response.json()
 
+        
+        all_items = []
         for farmer in farmers:
             items = farmer.get('items', [])
-            if not recipient_email or not items:
-                print(f"Skipping user with missing email or items: {user_data}")
-                continue
+            if items:
+                all_items.extend(items)
 
-            order_lines = ""
-            for item in items:
-                order_lines += f"""
+        if not recipient_email or not all_items:
+            print("No valid recipient or items to send.")
+            return jsonify({'error': 'No valid recipient or items to send.'}), 400
+
+        
+        order_lines = ""
+        for item in all_items:
+            order_lines += f"""
 ----------------------------
 Animal Name: {item.get('name')}
 Type: {item.get('type')}
@@ -64,12 +70,13 @@ Description: {item.get('description')}
 Number of Images Listed: {item.get('image_count')}
 """
 
-            msg = Message(
-                subject='FARMART - Delivery confirmation',
-                sender='arvinkipo@gmail.com',
-                recipients=[recipient_email]
-            )
-            msg.body = f"""
+       
+        msg = Message(
+            subject='FARMART - Delivery confirmation',
+            sender='arvinkipo@gmail.com',
+            recipients=[recipient_email]
+        )
+        msg.body = f"""
 Hello {username},
 
 This email is a confirmation that you received delivery of the following items:
@@ -81,16 +88,13 @@ If you have any questions or need assistance, feel free to reach out to our supp
 Thank you for using FarmArt!
 Let’s keep farming digital. 🌱
 """
-
-           
-            mail.send(msg)
+        mail.send(msg)
 
     except Exception as e:
         print(f"Exception occurred: {e}")
         return jsonify({'error': str(e)}), 500
 
     return jsonify({'message': 'Delivery email sent successfully'}), 200
-
 
 
 
