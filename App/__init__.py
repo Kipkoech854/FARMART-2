@@ -51,7 +51,8 @@ def create_app(config_name='testing'):
     from .routes.Auth_routes import auth_bp
     from .routes.Farmer_routes import farmer_routes
     from .routes.User_routes import user_bp
-    from .routes.Mail_service_routes import Mailservice_bp  
+    from .routes.Mail_service_routes import Mailservice_bp
+    from .routes.Status_mail_routes import Status_mail_bp  
 
     app.register_blueprint(Order_bp, url_prefix='/api/Order')
     app.register_blueprint(Mail_bp, url_prefix='/api/Mail')
@@ -60,5 +61,6 @@ def create_app(config_name='testing'):
     app.register_blueprint(farmer_routes, url_prefix='/api/farmers')
     app.register_blueprint(user_bp, url_prefix='/api/User')
     app.register_blueprint(Mailservice_bp, url_prefix='/api/Mailservice')
+    app.register_blueprint(Status_mail_bp, url_prefix='/api/StatusMail')
 
     return app

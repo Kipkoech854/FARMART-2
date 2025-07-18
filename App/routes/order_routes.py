@@ -4,6 +4,7 @@ from App.Schema.Order_schema import OrderSchema
 from decimal import Decimal
 from App.models.Orders import Order, OrderItem
 import requests
+from App.extensions import db
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
 
@@ -144,15 +145,71 @@ def Paid_orders(id):
 
     return jsonify(OrderSchema(many=True).dump(results)), 200
 
-@Order_bp.route('/Status/<string:userid>/<string:orderid>', methods=['PUT'])
-def status_update(userid, orderid):
-    order_service = OrderService()
-    status = request.args.get('status', 'pending').lower()
 
-    if status not in ['pending', 'confirmed', 'rejected']:
-        return jsonify([{'error': 'Invalid status value'}]), 400
+@Order_bp.route('/Status', methods=['PUT'])
+def status_update():
+    # 1. Get new status from query param
+    new_status = request.args.get('status', 'pending').lower()
+    if new_status not in ['pending', 'confirmed', 'rejected']:
+        return jsonify({'error': 'Invalid status value'}), 400
 
-    return order_service.update_status(user_id=userid, order_id=orderid, status=status)
+    # 2. Get full order JSON from request body
+    order_data = request.get_json()
+    if not order_data:
+        return jsonify({'error': 'Missing order data'}), 400
+
+    order_id = order_data.get('id')
+    if not order_id:
+        return jsonify({'error': 'Order ID is required'}), 400
+
+    # 3. Query order by ID
+    order = Order.query.filter_by(id=order_id).first()
+    if not order:
+        return jsonify({'error': 'Order not found'}), 404
+
+    # 4. Update status only
+    order.status = new_status
+    db.session.commit()
+
+    # 5. Re-query to get fresh data (eager load items if needed)
+    updated_order = Order.query.filter_by(id=order_id).first()
+
+    # 6. Serialize order with nested items
+    payload = OrderSchema().dump(updated_order)
+    if payload:
+        user_email_success = False
+        farmer_email_success = False
+        try:
+            response = requests.post(
+                'http://127.0.0.1:5555/api/StatusMail/Status-Changed-User',
+                json=payload
+                )
+            user_email_success = response.status_code == 200
+                
+            res = requests.post(
+                'http://127.0.0.1:5555/api/StatusMail/Status-Changed-Farmer',
+                json=payload
+                )
+            farmer_email_success = res.status_code == 200
+            if user_email_success and farmer_email_success:
+                print("Emails sent to farmers and users")
+                return jsonify({'success': 'Emails sent to farmers and users'}), 200
+                    
+            elif not user_email_success and not farmer_email_success:
+                return jsonify({'error': 'Failed to send email to both user and farmers'}), 500
+                    
+            elif not user_email_success:
+                return jsonify({'error': 'Failed to send email to user'}), 500
+                    
+            elif not farmer_email_success:
+                return jsonify({'error': 'Failed to send email to farmers'}), 500
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    # 7. Return full updated order
+    return jsonify(payload), 200
+
 
 @Order_bp.route('/DeliveryStatus/<string:userid>/<string:orderid>', methods=['PUT'])
 def delivery_status_update(userid, orderid):

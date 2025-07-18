@@ -1,7 +1,7 @@
 from flask import Flask
 from App.extensions import ma
 from App.models.Orders import Order, OrderItem
-
+from marshmallow import fields
 
 
 class OrderItemSchema(ma.SQLAlchemySchema):
@@ -13,7 +13,7 @@ class OrderItemSchema(ma.SQLAlchemySchema):
     order_id = ma.auto_field()
     animal_id = ma.auto_field()
     quantity = ma.auto_field()
-    price_at_order_time = ma.auto_field()
+    price_at_order_time = fields.Float()
 
 
 class OrderSchema(ma.SQLAlchemySchema):
@@ -26,7 +26,7 @@ class OrderSchema(ma.SQLAlchemySchema):
     status = ma.auto_field()
     paid = ma.auto_field()
     delivered = ma.auto_field()
-    amount = ma.auto_field()
+    amount = fields.Float()
     created_at = ma.auto_field()
     
     items = ma.Nested(OrderItemSchema, many=True) 

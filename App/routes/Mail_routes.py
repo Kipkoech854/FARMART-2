@@ -3,27 +3,24 @@ from flask_mail import Message
 from App.extensions import mail
 import requests
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-
+from flask_mail import Message
 
 Mail_bp = Blueprint('Mail_bp', __name__)
 
-from flask import Blueprint, jsonify, request
-import requests
-from flask_mail import Message
-from App.extensions import mail
 
 Mail_bp = Blueprint('Mail_bp', __name__)
 
 @Mail_bp.route('/Order-User/<string:user_id>', methods=['POST'])
 def Send_order_confirmation_user(user_id):
     data = request.get_json()
-    id = data.get('id')
+    order_id = data.get('id')
     created_at = data.get('created_at')
     amount = data.get('amount')
     items = data.get('items', [])
     number = len(items)
 
     try:
+        
         response = requests.get(f'http://127.0.0.1:5555/api/Mailservice/Users/{user_id}')
         if response.status_code != 200:
             return jsonify({'error': f"Recipient mailservice error: {response.text}"}), 404
@@ -32,24 +29,60 @@ def Send_order_confirmation_user(user_id):
         email = recipient.get('email')
         username = recipient.get('username')
 
+        
+        enriched = requests.post(
+            'http://127.0.0.1:5555/api/Mailservice/mail/farmer-item-details',
+            json=data
+        )
+
+        if enriched.status_code != 200:
+            return jsonify({'error': f"Failed to retrieve farmer-item details: {enriched.text}"}), 500
+
+        farmers = enriched.json()
+
+        detailed_lines = ""
+        for farmer in farmers:
+            farmer_email = farmer.get('email')
+            farmer_username = farmer.get('username')
+            items = farmer.get('items', [])
+
+            detailed_lines += f"\nFarmer: {farmer_username} ({farmer_email})\n"
+            detailed_lines += "-" * 40 + "\n"
+            for item in items:
+                detailed_lines += f"""Animal: {item.get('name')}
+Type: {item.get('type')}
+Breed: {item.get('breed')}
+Age: {item.get('age')}
+Price: KES {item.get('price_at_order_time')}
+Quantity: {item.get('quantity')}
+Available: {"Yes" if item.get('is_available') else "No"}
+Description: {item.get('description')}
+Images Listed: {item.get('image_count')}
+
+"""
+
+        
         msg = Message(
             subject='FARMART - Order Confirmation',
             sender='arvinkipo@gmail.com',
-            recipients=[email] 
+            recipients=[email]
         )
 
         msg.body = (
             f"Hello {username},\n\n"
-            f"This is to confirm your order **{id}**, which totaled KES {amount}. "
-            f"The order was made at {created_at} and contains {number} item(s).\n\n"
-            f"An email has been sent to the farmer for confirmation. "
-            f"You will receive a follow-up email once the farmer confirms, so you can proceed with payment and delivery.\n\n"
-            f"HAPPY SHOPPING!\nFARMART TEAM"
+            f"This is to confirm your order **{order_id}**, placed on {created_at}.\n"
+            f"Total Amount: KES {amount}\n"
+            f"Total Items: {number}\n\n"
+            f"The following animals have been ordered:\n"
+            f"{detailed_lines}\n"
+            f"A confirmation email has been sent to the farmer(s). "
+            f"You'll receive another message once they confirm so you can proceed with payment and delivery.\n\n"
+            f"HAPPY SHOPPING!\nFARMART TEAM 🌱"
         )
 
-        print("Preparing to send email...")
+        print("Preparing to send email to user...")
         mail.send(msg)
-        print("Email sent successfully")
+        print("User order email sent successfully")
         return jsonify({'message': 'Email sent successfully'}), 200
 
     except Exception as e:
@@ -58,14 +91,16 @@ def Send_order_confirmation_user(user_id):
 
 
 
+
 @Mail_bp.route('/Order-farmer', methods=['POST'])
 def Send_order_confirmation_farmer():
     data = request.get_json()
     
     if not data:
-        return jsonify([{'error': 'Invalid or no data to send to farmers'}]), 400
+        return jsonify({'error': 'Invalid or no data to send to farmers'}), 400
 
     try:
+        # Step 1: Get farmer item details
         response = requests.post(
             'http://127.0.0.1:5555/api/Mailservice/mail/farmer-item-details',
             json=data
@@ -73,23 +108,26 @@ def Send_order_confirmation_farmer():
         
         if response.status_code != 200:
             print('Failed to get farmer details:', response.text)
-            return jsonify([{'error': 'Farmer details not found!'}]), 404
+            return jsonify({'error': 'Failed to retrieve farmer details'}), 404
 
         farmers = response.json()
 
+        failed_emails = []
+        successful_emails = []
+
         for farmer in farmers:
-            try:
-                recipient_email = farmer.get('email')
-                username = farmer.get('username')
-                items = farmer.get('items', [])
+            recipient_email = farmer.get('email')
+            username = farmer.get('username')
+            items = farmer.get('items', [])
 
-                if not recipient_email or not items:
-                    continue 
+            if not recipient_email or not items:
+                print(f"Skipping farmer with missing email or items: {farmer}")
+                continue
 
-                
-                order_lines = ""
-                for item in items:
-                    order_lines += f"""
+            # Build the message body
+            order_lines = ""
+            for item in items:
+                order_lines += f"""
 ----------------------------
 Animal Name: {item.get('name')}
 Type: {item.get('type')}
@@ -102,13 +140,14 @@ Description: {item.get('description')}
 Number of Images Listed: {item.get('image_count')}
 """
 
-                msg = Message(
-                    subject='FARMART - New Animal Order Received',
-                    sender='arvinkipo@gmail.com',
-                    recipients=[recipient_email]
-                )
+            # Compose the email
+            msg = Message(
+                subject='FARMART - New Animal Order Received',
+                sender='arvinkipo@gmail.com',
+                recipients=[recipient_email]
+            )
 
-                msg.body = f"""
+            msg.body = f"""
 Hello {username},
 
 You have received a new order for your listed animals on FARMART. Below are the details of the order:
@@ -123,18 +162,25 @@ Thank you for using FarmArt!
 Let’s keep farming digital. 🌱
 """
 
-                print("Sending email to:", recipient_email)
+            try:
                 mail.send(msg)
-                print("Email sent successfully to:", recipient_email)
-
+                successful_emails.append(recipient_email)
+                print(f"Email sent successfully to {recipient_email}")
             except Exception as e:
-                print("Failed to send email to:", recipient_email)
-                return jsonify([{'error': str(e)}]), 500
+                error_msg = str(e)
+                print(f"Error sending email to {recipient_email}: {error_msg}")
+                failed_emails.append({'email': recipient_email, 'error': error_msg})
 
-        return jsonify({'message': 'Emails sent successfully to all farmers'}), 200
+        return jsonify({
+            'message': 'Email dispatch complete',
+            'successful': successful_emails,
+            'failed': failed_emails
+        }), 207 if failed_emails else 200
 
     except Exception as e:
-        return jsonify([{'error': str(e)}]), 500
+        print("Critical failure:", str(e))
+        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+
 
 
 @Mail_bp.route("/createAnimalconformation", methods=["POST"])
