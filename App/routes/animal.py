@@ -43,26 +43,16 @@ def create_animal():
             db.session.add(new_image)
         db.session.commit()
 
-        # Fetch updated animal with images
+        
         animal_with_images = Animal.query.get(new_animal.id)
 
-        # Prepare payload for email
+      
         payload = animal_schema.dump(animal_with_images)
         payload['farmer_id'] = current_user_id
 
-        # Send confirmation email
-        try:
-            mail_response = requests.post(
-                'http://127.0.0.1:5555/api/Mail/createAnimalconformation',
-                json=payload
-            )
-            if mail_response.status_code != 200:
-                print("Failed to send confirmation email:", mail_response.text)
+        from App.Utils.Animal_email_sender import send_animal_creation_confirmation
 
-        except Exception as e:
-            print("Error sending email:", e)
-
-        return jsonify(payload), 201
+        send_animal_creation_confirmation(payload)
 
     except Exception as e:
         print("Database or creation error:", str(e))

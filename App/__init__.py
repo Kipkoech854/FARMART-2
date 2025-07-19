@@ -49,25 +49,19 @@ def create_app(config_name='testing'):
 
     # Register blueprints
     from .routes.order_routes import Order_bp
-    from .routes.Mail_routes import Mail_bp
     from .routes.animal import animals_blueprint
     from .routes.Auth_routes import auth_bp
     from .routes.Farmer_routes import farmer_routes
     from .routes.User_routes import user_bp
     from .routes.Mail_service_routes import Mailservice_bp
-    from .routes.Status_mail_routes import Status_mail_bp
-    from .routes.Delivery_mail_routes import Delivery_mail_bp 
     from .routes.Auth_mail_routes import Auth_Mail_bp 
 
     app.register_blueprint(Order_bp, url_prefix='/api/Order')
-    app.register_blueprint(Mail_bp, url_prefix='/api/Mail')
     app.register_blueprint(animals_blueprint, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(farmer_routes, url_prefix='/api/farmers')
     app.register_blueprint(user_bp, url_prefix='/api/User')
     app.register_blueprint(Mailservice_bp, url_prefix='/api/Mailservice')
-    app.register_blueprint(Status_mail_bp, url_prefix='/api/StatusMail')
-    app.register_blueprint(Delivery_mail_bp, url_prefix='/api/DeliveryMail')
     app.register_blueprint(Auth_Mail_bp, url_prefix='/api/AuthMail')
 
     return app
