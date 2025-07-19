@@ -63,7 +63,33 @@ def create_animal():
 
 @animals_blueprint.route('/animals', methods=['GET'])
 def get_all_animals():
-    animals = Animal.query.filter_by(is_available=True).all()
+    # Get query parameters
+    search = request.args.get('search', '')
+    sort_by = request.args.get('sort_by', 'name')
+    sort_order = request.args.get('sort_order', 'asc')
+    
+    # Start with base query
+    query = Animal.query.filter_by(is_available=True)
+    
+    # Apply search filter if provided
+    if search:
+        search = f"%{search}%"
+        query = query.filter(
+            (Animal.name.ilike(search)) |
+            (Animal.breed.ilike(search)) |
+            (Animal.type.ilike(search)) |
+            (Animal.description.ilike(search))
+        )
+    
+    # Apply sorting
+    if hasattr(Animal, sort_by):
+        sort_column = getattr(Animal, sort_by)
+        if sort_order.lower() == 'desc':
+            sort_column = sort_column.desc()
+        query = query.order_by(sort_column)
+    
+    # Execute query
+    animals = query.all()
     return jsonify(animals_schema.dump(animals)), 200
 
 @animals_blueprint.route('/animals/<string:animal_id>', methods=['GET'])
