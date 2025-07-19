@@ -17,6 +17,7 @@ class Animal(db.Model):
     farmer_id = db.Column(db.String, db.ForeignKey('users.id', name='fk_animals_farmer_id_users'))
 
     images = db.relationship("AnimalImage", backref="animal", cascade="all, delete-orphan")
+    likes = db.relationship("Like", back_populates="animal", cascade="all, delete-orphan")
 
 class AnimalImage(db.Model):  
     __tablename__ = 'animal_images'

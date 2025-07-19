@@ -4,6 +4,7 @@ from App.extensions import db
 from App.models.Animals import Animal, AnimalImage
 from App.Schema.animal_schemas import AnimalSchema, AnimalImageSchema
 import requests
+from App.models.Likes import Like
 
 
 animals_blueprint = Blueprint('animals', __name__)
@@ -104,7 +105,6 @@ def delete_animal(animal_id):
     animal = Animal.query.get_or_404(animal_id)
     current_user_id = get_jwt_identity()
     
-    # Ensure both IDs are integers for comparison
     if int(animal.farmer_id) != int(current_user_id):
         return jsonify({"message": "Unauthorized"}), 403
     
@@ -118,3 +118,43 @@ def get_farmer_animals():
     current_user_id = get_jwt_identity()
     animals = Animal.query.filter_by(farmer_id=current_user_id).all()
     return jsonify(animals_schema.dump(animals)), 200
+
+
+
+@animals_blueprint.route('/recommendations', methods=['GET'])
+@jwt_required()
+def get_recommendations():
+    user_id = get_jwt_identity()
+    try:
+        from App.Utils.Recommendation import recommend_animals_for_user
+        recommended = recommend_animals_for_user(user_id)
+        return jsonify([AnimalSchema().dump(animal) for animal in recommended]), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
+
+@animals_blueprint.route('/toggle/<string:animal_id>', methods=['POST'])
+@jwt_required()
+def toggle_like(animal_id):
+    user_id = get_jwt_identity()
+
+  
+    existing_like = Like.query.filter_by(user_id=user_id, animal_id=animal_id).first()
+
+    if existing_like:
+       
+        db.session.delete(existing_like)
+        db.session.commit()
+        return jsonify({'message': 'Unliked successfully'}), 200
+    else:
+       
+        new_like = Like(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            animal_id=animal_id
+        )
+        db.session.add(new_like)
+        db.session.commit()
+        return jsonify({'message': 'Liked successfully'}), 201
