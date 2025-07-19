@@ -1,1 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+
+# Logs
+*.log
+
+# Environment
 .env
+venv/
+instance/
+*.db
+
+# Migrations
+migrations/
+migrations/versions/
+
+# Editor settings
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db

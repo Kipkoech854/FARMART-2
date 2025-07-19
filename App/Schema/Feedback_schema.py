@@ -1,5 +1,5 @@
 from App.extensions import ma
-from .Users_schema import  UserSchema
+from App.Schema.Users_schema import UserSchema
 from App.models.Feedback import Feedback
 
 
