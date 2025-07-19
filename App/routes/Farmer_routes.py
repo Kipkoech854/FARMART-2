@@ -204,4 +204,6 @@ def verify_email(token):
     farmer.verified = 'verified'
     db.session.commit()
 
+    send_farmer_welcome_email(farmer.email, farmer.username)
+
     return redirect(f"https://your-frontend.com/verify?status=success&email={farmer.email}")

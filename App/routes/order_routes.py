@@ -6,7 +6,7 @@ from App.models.Orders import Order, OrderItem
 import requests
 from App.extensions import db
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-
+from App.Utils.Order_email_senders import send_order_confirmation_to_user, send_order_confirmation_to_farmers
 
 Order_bp = Blueprint('Order_bp', __name__)
 
@@ -46,7 +46,6 @@ def create_order():
         if item_status != 201:
             return result, item_status  
 
-    
     payload = {
         'id': order.id,
         'created_at': str(order.created_at),
@@ -54,24 +53,24 @@ def create_order():
         'items': items
     }
 
-    try:
-        User_mail_response = requests.post(
-            f'http://127.0.0.1:5555/api/Mail/Order-User/{user_id}',
-            json=payload
-        )
-        if User_mail_response.status_code != 200:
-            print("Mail service error:", User_mail_response.text)
-        
-        farmer_mail_response = requests.post(
-            f'http://127.0.0.1:5555/api/Mail/Order-farmer',
-            json=payload
-        )
-        if farmer_mail_response.status_code != 200:
-            print('Mail servive eror:', farmer_mail_response.text)
-    except Exception as e:
-        print("Mail request failed:", e)
+   
+    user_mail_success, user_error = send_order_confirmation_to_user(
+        user_id=user_id,
+        order_id=order.id,
+        created_at=str(order.created_at),
+        amount=str(order.amount),
+        items=items
+    )
+
+    if not user_mail_success:
+        print(f"User email failed: {user_error}")
+
+    successful, failed = send_order_confirmation_to_farmers(items)
+    if failed:
+        print("Some farmer emails failed:", failed)
 
     return jsonify(OrderSchema().dump(order)), 201
+
 
 
 @Order_bp.route('/all/<string:id>', methods=['GET'])
@@ -211,71 +210,53 @@ def status_update():
     return jsonify(payload), 200
 
 
-@Order_bp.route('/DeliveryStatus/<string:userid>/<string:orderid>', methods=['PUT'])
-def delivery_status_update(userid, orderid):
+@Order_bp.route('/DeliveryStatus/<string:orderid>', methods=['PUT'])
+@jwt_required()
+def delivery_status_update(orderid):
+    user_id = get_jwt_identity()
+    from App.Utils.Delivery_email_senders import send_delivery_email_to_user, send_delivery_email_to_farmers
     delivered = request.args.get('delivered', 'false').lower() == 'true'
-
-  
-    order = Order.query.filter_by(id=orderid, user_id=userid).first()
+    order = Order.query.filter_by(id=orderid, user_id=user_id).first()
 
     if not order:
         return jsonify({'error': 'Order not found'}), 404
 
-  
     order.delivered = delivered
     db.session.commit()
 
-    
     order_data = {
         'id': order.id,
         'user_id': order.user_id,
-        'status': order.status,
-        'paid': order.paid,
-        'delivered': order.delivered,
-        'amount': str(order.amount),
-        'created_at': order.created_at.isoformat(),
-        'items': []
-    }
-
-    for item in order.items:
-        order_data['items'].append({
+        'items': [{
             'id': item.id,
-            'order_id': item.order_id,
             'animal_id': item.animal_id,
             'quantity': item.quantity,
             'price_at_order_time': str(item.price_at_order_time)
-        })
-  
+        } for item in order.items]
+    }
+
     if delivered:
-        try:
-            response = requests.post(
-                'http://127.0.0.1:5555/api/DeliveryMail/DeliveryMail-User',
-                json=order_data
-            )
-            if response.status_code != 200:
-                return jsonify({'error': 'Delivery email not sent to user'}), 500
-            
-        
-            res = requests.post(
-                'http://127.0.0.1:5555/api/DeliveryMail/DeliveryMail-Farmer',
-                json=order_data  
-                )
+        user_success = send_delivery_email_to_user(order.user_id, order_data['items'])
+        farmer_failures = send_delivery_email_to_farmers(order_data['items'])
 
-            if res.status_code != 200:
-                return jsonify({'error': 'Delivery email not sent to farmer'}), 500    
-
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+        if not user_success:
+            return jsonify({'error': 'Failed to send delivery email to user'}), 500
+        if farmer_failures:
+            return jsonify({'error': 'Failed to send email to some farmers', 'failed_emails': farmer_failures}), 500
 
     return jsonify(order_data), 200
 
-@Order_bp.route('/PaymentStatus/<string:userid>/<string:orderid>', methods=['PUT'])
-def payment_status_update(userid, orderid):
+@Order_bp.route('/PaymentStatus/<string:orderid>', methods=['PUT'])
+@jwt_required()
+def payment_status_update(orderid):
+    from App.Utils.Payment_email_senders import  send_payment_confirmation_to_user, send_payment_confirmation_to_farmers
+    user_id = get_jwt_identity()
+
     paid = request.args.get('paid', 'false').lower() == 'true'
 
-    order = Order.query.filter_by(user_id=userid, id=orderid).first()
+    order = Order.query.filter_by(user_id=user_id, id=orderid).first()
     if not order:
-        return {'error': 'Order not found'}, 404
+        return jsonify({'error': 'Order not found'}), 404
 
     order.paid = paid
     db.session.commit()
@@ -288,38 +269,33 @@ def payment_status_update(userid, orderid):
         'delivered': order.delivered,
         'amount': str(order.amount),
         'created_at': order.created_at.isoformat(),
-        'items': []
+        'items': [
+            {
+                'id': item.id,
+                'order_id': item.order_id,
+                'animal_id': item.animal_id,
+                'quantity': item.quantity,
+                'price_at_order_time': str(item.price_at_order_time)
+            }
+            for item in order.items
+        ]
     }
-
-    for item in order.items:
-        order_data['items'].append({
-            'id': item.id,
-            'order_id': item.order_id,
-            'animal_id': item.animal_id,
-            'quantity': item.quantity,
-            'price_at_order_time': str(item.price_at_order_time)
-        })
+    items = order_data['items']
 
     if paid:
         try:
-            res = requests.post(
-                'http://127.0.0.1:5555/api/DeliveryMail/PaymentConfirmation-Farmer',
-                json=order_data
-            )
-            if res.status_code != 200:
-                return jsonify({'error':' Could not send payment confirmation to farmer'}), 500
+            from App.Utils.mail_utils import group_items_by_farmer_util
 
-            response = requests.post(
-                "http://127.0.0.1:5555/api/DeliveryMail/PaymentConfirmation-User",
-                json=order_data
-            )
-            if response.status_code !=200:
-                return jsonify({'error': 'could not send payment cnfirmation to user'}), 500
+            farmers = group_items_by_farmer_util(items)
+            payment_method = request.args.get("method", "card") 
 
-
-            return jsonify({'message':"payment confirmation to farmer sent sucessfully"}), 200 
+            send_payment_confirmation_to_farmers(farmers, payment_method)
+            send_payment_confirmation_to_user(user_id, order_data)
 
         except Exception as e:
-            return jsonify({'error': 'error trying to send email confrimation to farmer'}), 500
+            print(f"Email sending failed: {e}")
+            return jsonify({'error': 'Failed to send confirmation emails'}), 500
+
+        return jsonify({'message': "Payment confirmation emails sent successfully"}), 200
 
     return jsonify(order_data), 200

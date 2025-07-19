@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, redirect
 from App import db
 from App.models.Users import User  
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
@@ -8,7 +8,7 @@ from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Message
 from flask import current_app
 from App.Utils.Token_Utils import generate_verification_token
-from App.Utils.Verification_mails import send_verification_email
+from App.Utils.Verification_mails import send_verification_email, send_welcome_email
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -86,6 +86,7 @@ def profile():
             "role": user.role,
             "profile_picture": user.profile_picture
         }), 200
+
 @auth_bp.route('/verify/<token>', methods=['GET'])
 def verify_email(token):
     serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
@@ -103,4 +104,7 @@ def verify_email(token):
 
     user.verified = True
     db.session.commit()
+
+    send_welcome_email(user.email, user.username)
+
     return redirect("https://yourfrontend.com/verified")

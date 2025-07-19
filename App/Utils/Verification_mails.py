@@ -24,3 +24,37 @@ If you did not register, please ignore this email.
 - The FarmArt Team
 """
     mail.send(msg)
+
+
+def send_welcome_email(to_email, username):
+    subject = "Welcome to Farmart!"
+    body = f"""Hello {username},
+
+🎉 Your account has been successfully verified!
+
+We're excited to have you on board. You can now log in and start exploring everything we offer.
+
+If you ever need help, feel free to reach out.
+
+Best regards,  
+The Farmart Team
+"""
+    msg = Message(subject=subject, recipients=[to_email], body=body)
+    mail.send(msg)
+
+
+def send_farmer_welcome_email(to_email, username):
+    subject = "🎉 Welcome to Farmart!"
+    body = f"""Hello {username},
+
+Your farmer account has been successfully verified! ✅
+
+You're now ready to list animals, manage your farm profile, and connect with buyers.
+
+If you need assistance, our team is here to help.
+
+Happy Farming!  
+- The Farmart Team
+"""
+    msg = Message(subject=subject, recipients=[to_email], body=body)
+    mail.send(msg)    
