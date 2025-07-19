@@ -1,10 +1,12 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, url_for, redirect
 from App.extensions import db
 from App.models.Farmers import Farmer
 from App.models.Animals import Animal
 from App.models.Feedback import Feedback
 from App.extensions import db
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from App.Utils.Token_Utils import generate_verification_token, confirm_verification_token
+from App.Utils.Verification_mails import send_verification_email
 
 
 
@@ -29,21 +31,29 @@ def register_farmer():
         email=email,
         username=username,
         phone=data.get('phone'),
-        profile_picture=data.get('profile_picture')
+        profile_picture=data.get('profile_picture'),
+        verified='unverified'
     )
-    new_farmer.set_password(password) 
+    new_farmer.set_password(password)
 
     db.session.add(new_farmer)
     db.session.commit()
+
+  
+    token = generate_verification_token(email)
+    verify_url = url_for('farmer_routes.verify_email', token=token, _external=True)
+
+  
+    send_verification_email(email, username, verify_url)
+
     return jsonify({
-        "message": "Farmer registered",
+        "message": "Farmer registered. Please verify your email.",
         "farmer": {
             "id": new_farmer.id,
             "username": new_farmer.username,
             "email": new_farmer.email
         }
-    }), 201
-
+    }), 200
 
 @farmer_routes.route('/farmers/login', methods=['POST'])
 def login_farmer():
@@ -53,6 +63,9 @@ def login_farmer():
 
     farmer = Farmer.query.filter_by(email=email).first()
     if farmer and farmer.check_password(password):
+        if farmer.verified != 'verified':
+            return jsonify({"error": "Account not verified. Please check your email."}), 403
+
         access_token = create_access_token(identity=farmer.id)
         return jsonify({
             "message": "Login successful",
@@ -63,7 +76,9 @@ def login_farmer():
                 "email": farmer.email
             }
         }), 200
+
     return jsonify({"error": "Invalid credentials"}), 401
+
 
 
 @farmer_routes.route('/farmers', methods=['PUT'])
@@ -168,3 +183,25 @@ def get_farmer_feedback():
         "pages": pagination.pages,
         "current_page": pagination.page,
         "per_page": pagination.per_page})
+
+
+
+@farmer_routes.route('/farmers/verify/<token>', methods=['GET'])
+def verify_email(token):
+    try:
+        email = confirm_verification_token(token)  
+    except SignatureExpired:
+        return redirect("https://your-frontend.com/verify?status=expired")
+    except BadSignature:
+        return redirect("https://your-frontend.com/verify?status=invalid")
+    except Exception as e:
+        return redirect(f"https://your-frontend.com/verify?status=error&msg={str(e)}")
+
+    farmer = Farmer.query.filter_by(email=email).first()
+    if not farmer:
+        return redirect("https://your-frontend.com/verify?status=not_found")
+
+    farmer.verified = 'verified'
+    db.session.commit()
+
+    return redirect(f"https://your-frontend.com/verify?status=success&email={farmer.email}")

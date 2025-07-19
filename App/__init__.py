@@ -19,6 +19,9 @@ def create_app(config_name='testing'):
     app.config['MAIL_DEBUG'] = True
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
 
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+
+
     # Load configuration
     app.config.from_object(config_by_name[config_name])
     app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
@@ -53,7 +56,8 @@ def create_app(config_name='testing'):
     from .routes.User_routes import user_bp
     from .routes.Mail_service_routes import Mailservice_bp
     from .routes.Status_mail_routes import Status_mail_bp
-    from .routes.Delivery_mail_routes import Delivery_mail_bp  
+    from .routes.Delivery_mail_routes import Delivery_mail_bp 
+    from .routes.Auth_mail_routes import Auth_Mail_bp 
 
     app.register_blueprint(Order_bp, url_prefix='/api/Order')
     app.register_blueprint(Mail_bp, url_prefix='/api/Mail')
@@ -64,5 +68,6 @@ def create_app(config_name='testing'):
     app.register_blueprint(Mailservice_bp, url_prefix='/api/Mailservice')
     app.register_blueprint(Status_mail_bp, url_prefix='/api/StatusMail')
     app.register_blueprint(Delivery_mail_bp, url_prefix='/api/DeliveryMail')
+    app.register_blueprint(Auth_Mail_bp, url_prefix='/api/AuthMail')
 
     return app

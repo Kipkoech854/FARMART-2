@@ -45,7 +45,7 @@ def update_user(user_id):
 
 @user_bp.route('/user', methods=['DELETE'])
 @jwt_required()
-@role_required('admin', 'customer') 
+ 
 def delete_user():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)

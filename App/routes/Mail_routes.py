@@ -8,8 +8,6 @@ from flask_mail import Message
 Mail_bp = Blueprint('Mail_bp', __name__)
 
 
-Mail_bp = Blueprint('Mail_bp', __name__)
-
 @Mail_bp.route('/Order-User/<string:user_id>', methods=['POST'])
 def Send_order_confirmation_user(user_id):
     data = request.get_json()
@@ -64,7 +62,7 @@ Images Listed: {item.get('image_count')}
         
         msg = Message(
             subject='FARMART - Order Confirmation',
-            sender='arvinkipo@gmail.com',
+            sender='farmart597@gmail.com',
             recipients=[email]
         )
 
@@ -100,7 +98,7 @@ def Send_order_confirmation_farmer():
         return jsonify({'error': 'Invalid or no data to send to farmers'}), 400
 
     try:
-        # Step 1: Get farmer item details
+        
         response = requests.post(
             'http://127.0.0.1:5555/api/Mailservice/mail/farmer-item-details',
             json=data
@@ -124,7 +122,7 @@ def Send_order_confirmation_farmer():
                 print(f"Skipping farmer with missing email or items: {farmer}")
                 continue
 
-            # Build the message body
+        
             order_lines = ""
             for item in items:
                 order_lines += f"""
@@ -143,7 +141,7 @@ Number of Images Listed: {item.get('image_count')}
             # Compose the email
             msg = Message(
                 subject='FARMART - New Animal Order Received',
-                sender='arvinkipo@gmail.com',
+                sender='farmart597@gmail.com',
                 recipients=[recipient_email]
             )
 
@@ -218,7 +216,7 @@ def animal_creation_confirmation_route():
     try:
         msg = Message(
             'FARMART',
-            sender='arvinkipo@gmail.com',
+            sender='farmart597@gmail.com',
             recipients=[receipient]
         )
         msg.body = f"""
@@ -252,7 +250,7 @@ def test_email():
     try:
         msg = Message(
             subject='Test Email from FarmArt',
-            sender = 'arvinkipo@gmail.com',
+            sender = 'farmart597@gmail.com',
             recipients=['gideonkipkoech854@gmail.com'],  # Replace with your test email
             body='This is a test message to verify the email system is working.'
         )

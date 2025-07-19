@@ -11,6 +11,7 @@ class Farmer(db.Model):
     username = db.Column(db.String(20), nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     profile_picture = db.Column(db.String(255))
+    verified = db.Column(db.String(20), default='unverified')
 
     feedbacks = db.relationship("Feedback", back_populates="farmer", cascade="all, delete-orphan")
 

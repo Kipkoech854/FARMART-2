@@ -21,7 +21,7 @@ def Send_order_status_change_user():
 
     status = data.get('status', '').lower()
 
-    # Conditional message
+    
     if status == 'confirmed':
         line = (
             f"Please go over to our website and complete payment. "
@@ -53,7 +53,7 @@ def Send_order_status_change_user():
         recipient_email = user_data.get('email')
         username = user_data.get('username')
 
-        # Get farmer and item details
+        
         response = requests.post(
             'http://127.0.0.1:5555/api/Mailservice/mail/farmer-item-details',
             json=data
@@ -93,7 +93,7 @@ Number of Images Listed: {item.get('image_count')}
 
             msg = Message(
                 subject='FARMART - New Order Status Received',
-                sender='arvinkipo@gmail.com',
+                sender='farmart597@gmail.com',
                 recipients=[recipient_email]
             )
 
@@ -197,7 +197,7 @@ Number of Images Listed: {item.get('image_count')}
             # Compose the email
             msg = Message(
                 subject='FARMART - New Animal Order Received',
-                sender='arvinkipo@gmail.com',
+                sender='farmart597@gmail.com',
                 recipients=[recipient_email]
             )
 

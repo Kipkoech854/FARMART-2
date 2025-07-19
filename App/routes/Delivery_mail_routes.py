@@ -73,7 +73,7 @@ Number of Images Listed: {item.get('image_count')}
        
         msg = Message(
             subject='FARMART - Delivery confirmation',
-            sender='arvinkipo@gmail.com',
+            sender='farmart597@gmail.com',
             recipients=[recipient_email]
         )
         msg.body = f"""
@@ -149,7 +149,7 @@ Number of Images Listed: {item.get('image_count')}
 
             msg = Message(
                 subject='FARMART - Order delivery confirmed by customer',
-                sender='arvinkipo@gmail.com',
+                sender='farmart597@gmail.com',
                 recipients=[email]
             )
 
@@ -194,7 +194,7 @@ def send_payment_confirmation_farmer():
     data = request.get_json()
     payment_method = data.get('paymrnt_method', '').lower()
 
-    # Conditional message
+    
     if payment_method == 'card':
         line = (
             f"please visit your bank account and check the transaction"
@@ -250,7 +250,7 @@ Number of Images Listed: {item.get('image_count')}
 
             msg = Message(
                 subject='FARMART - Payment Received for Your Order',
-                sender='arvinkipo@gmail.com',
+                sender='farmart597@gmail.com',
                 recipients=[email]
             )
 
@@ -326,7 +326,7 @@ Price at Order Time: KES {item.get('price_at_order_time')}
        
         msg = Message(
             subject='FARMART - Payment Confirmation',
-            sender='arvinkipo@gmail.com',
+            sender='farmart597@gmail.com',
             recipients=[recipient_email]
         )
         msg.body = f"""
