@@ -57,7 +57,10 @@ def create_app(config_name=None):
     from .routes.User_routes import user_bp
     from .routes.Mail_service_routes import Mailservice_bp
     from .routes.Auth_mail_routes import Auth_Mail_bp 
+    from .routes.home_routes import home_bp  
 
+
+    app.register_blueprint(home_bp) 
     app.register_blueprint(Order_bp, url_prefix='/api/Order')
     app.register_blueprint(animals_blueprint, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/auth')
