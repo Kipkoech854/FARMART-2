@@ -1,8 +1,7 @@
-from App import create_app, db
-from flask_migrate import Migrate
+from App import create_app
 
 app = create_app()
-migrate = Migrate(app, db)
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5555)
+if __name__ == "__main__":
+    # Render uses port 10000 by default
+    app.run(host='0.0.0.0', port=10000)
