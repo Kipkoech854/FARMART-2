@@ -13,27 +13,29 @@ import smtplib
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(env_path)
 
-def create_app(config_name='testing'):
+def create_app(config_name=None):
+    if config_name is None:
+        config_name = os.getenv("FLASK_ENV", "production")  # Default to production
+
     app = Flask(__name__)
 
+    # Common configs
     app.config['MAIL_DEBUG'] = True
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
-
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
-
-    # Load configuration
+    # Load environment-specific config (production/development/testing)
     app.config.from_object(config_by_name[config_name])
+
+    # Mail config
     app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
     app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 587))
     app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'True') == 'True'
-    app.config['MAIL_USE_SSL'] = False  # or True if using port 465
+    app.config['MAIL_USE_SSL'] = False
     app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
     app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
     app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
     app.config['MAIL_SUPPRESS_SEND'] = False
- 
-    
 
     # Initialize extensions
     db.init_app(app)

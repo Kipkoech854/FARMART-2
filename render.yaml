@@ -6,20 +6,20 @@ services:
     startCommand: gunicorn run:app
     envVars:
       - key: SECRET_KEY
-        value: your-secret-key
+        fromEnv: SECRET_KEY
       - key: JWT_SECRET_KEY
-        value: your-jwt-secret
+        fromEnv: JWT_SECRET_KEY
       - key: MAIL_USERNAME
-        value: farmart597@gmail.com
+        fromEnv: MAIL_USERNAME
       - key: MAIL_PASSWORD
-        value: your-app-password
+        fromEnv: MAIL_PASSWORD
       - key: MAIL_SERVER
-        value: smtp.gmail.com
+        fromEnv: MAIL_SERVER
       - key: MAIL_PORT
-        value: 587
+        fromEnv: MAIL_PORT
       - key: MAIL_USE_TLS
-        value: true
-      - key: DEV_DATABASE_URL
-        value: your-postgres-url
+        fromEnv: MAIL_USE_TLS
+      - key: DATABASE_URL
+        fromEnv: DATABASE_URL
     autoDeploy: true
     region: oregon
