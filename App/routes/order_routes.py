@@ -12,6 +12,7 @@ Order_bp = Blueprint('Order_bp', __name__)
 
 @Order_bp.route('/create', methods=['POST'])
 @jwt_required()
+@role_required('customer')
 def create_order():
     order_service = OrderService()
     data = request.get_json()
@@ -98,8 +99,10 @@ def get_order_by_id(order_id):
     return jsonify(OrderSchema().dump(order)), 200
 
 
-@Order_bp.route('/pending/<string:id>', methods=['GET'])
-def pending_orders(id):
+@Order_bp.route('/pending', methods=['GET'])
+@jwt_required()
+def pending_orders():
+    id = get_jwt_identity()
     results = Order.query.filter(
         Order.user_id.like(f'%{id}%'),
         Order.status.ilike('%pending%')
@@ -110,8 +113,10 @@ def pending_orders(id):
 
     return jsonify(OrderSchema(many=True).dump(results)), 200
 
-@Order_bp.route('/Confirmed/<string:id>', methods=['GET'])
-def confirmed_orders(id):
+@Order_bp.route('/Confirmed', methods=['GET'])
+@jwt_required()
+def confirmed_orders():
+    id = get_jwt_identity()
     results = Order.query.filter(
         Order.user_id.like(f'%{id}%'),
         Order.status.ilike('%confirmed%')
@@ -125,8 +130,10 @@ def confirmed_orders(id):
 
 
 
-@Order_bp.route('/Delivered/<string:id>', methods=['GET'])
-def delivered_orders(id):
+@Order_bp.route('/Delivered', methods=['GET'])
+@jwt_required()
+def delivered_orders():
+    id = get_jwt_identity()
     delivered = request.args.get('delivered', 'false').lower()
 
     
@@ -162,6 +169,7 @@ def Paid_orders(id):
 
 
 @Order_bp.route('/Status', methods=['PUT'])
+@role_required('farmer')
 def status_update():
     
     new_status = request.args.get('status', '').strip().lower()
@@ -212,6 +220,7 @@ def status_update():
 
 @Order_bp.route('/DeliveryStatus/<string:orderid>', methods=['PUT'])
 @jwt_required()
+@role_required('customer')
 def delivery_status_update(orderid):
     user_id = get_jwt_identity()
     from App.Utils.Delivery_email_senders import send_delivery_email_to_user, send_delivery_email_to_farmers
