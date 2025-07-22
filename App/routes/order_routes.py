@@ -10,6 +10,19 @@ from App.Utils.Order_email_senders import send_order_confirmation_to_user, send_
 
 Order_bp = Blueprint('Order_bp', __name__)
 
+
+def role_required(*required_roles):
+    def wrapper(fn):
+        @wraps(fn)
+        def decorator(*args, **kwargs):
+            verify_jwt_in_request()
+            claims = get_jwt()
+            if claims.get('role') not in required_roles:
+                return jsonify({"error": "Access denied"}), 403
+            return fn(*args, **kwargs)
+        return decorator
+    return wrapper
+
 @Order_bp.route('/create', methods=['POST'])
 @jwt_required()
 @role_required('customer')
@@ -150,8 +163,10 @@ def delivered_orders():
     return jsonify(OrderSchema(many=True).dump(results)), 200
 
 
-@Order_bp.route('/Paid/<string:id>', methods=['GET'])
-def Paid_orders(id):
+@Order_bp.route('/Paid', methods=['GET'])
+@jwt_required()
+def Paid_orders():
+    id = get_jwt_identity()
     paid = request.args.get('paid', 'false').lower()
 
     
