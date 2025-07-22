@@ -7,6 +7,8 @@ import requests
 from App.extensions import db
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from App.Utils.Order_email_senders import send_order_confirmation_to_user, send_order_confirmation_to_farmers
+from functools import wraps
+
 
 Order_bp = Blueprint('Order_bp', __name__)
 
@@ -14,13 +16,19 @@ Order_bp = Blueprint('Order_bp', __name__)
 def role_required(*required_roles):
     def wrapper(fn):
         @wraps(fn)
-        def decorator(*args, **kwargs):
-            verify_jwt_in_request()
-            claims = get_jwt()
-            if claims.get('role') not in required_roles:
-                return jsonify({"error": "Access denied"}), 403
+        def wrapped(*args, **kwargs):
+            try:
+                verify_jwt_in_request()
+                claims = get_jwt()
+            except Exception as e:
+                return jsonify({"error": "Token missing or invalid", "details": str(e)}), 401
+
+            user_role = claims.get('role')
+            if user_role not in required_roles:
+                return jsonify({"error": "Access denied: insufficient permissions"}), 403
+
             return fn(*args, **kwargs)
-        return decorator
+        return wrapped
     return wrapper
 
 @Order_bp.route('/create', methods=['POST'])
