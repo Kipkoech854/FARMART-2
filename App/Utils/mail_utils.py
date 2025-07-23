@@ -8,13 +8,13 @@ def get_farmer_contact(farmer_id):
     farmer = Farmer.query.get(farmer_id)
     if not farmer:
         return None
-    return {"email": farmer.email, "username": farmer.username}
+    return {"email": farmer.email, "username": farmer.username ,"profile_picture":farmer.profile_picture}
 
 def get_user_contact(user_id):
     user = User.query.get(user_id)
     if not user:
         return None
-    return {"email": user.email, "username": user.username}
+    return {"email": user.email, "username": user.username, "profile_picture": farmer.profile_picture}
 
 def group_items_by_farmer_util(items):
     if not isinstance(items, list):
@@ -223,3 +223,22 @@ def group_items_by_farmer_util_for_farmer(user_id, items):
         })
 
     return response_payload
+
+
+
+def get_orders_relevant_to_farmer(farmer_id):
+    # Step 1: Join OrderItem → Animal, filter by farmer_id
+    relevant_order_items = (
+        db.session.query(OrderItem)
+        .join(Animal, OrderItem.animal_id == Animal.id)
+        .filter(Animal.farmer_id == farmer_id)
+        .all()
+    )
+
+    # Step 2: Extract unique Order IDs
+    order_ids = {item.order_id for item in relevant_order_items}
+
+    # Step 3: Query all orders with those IDs
+    orders = Order.query.filter(Order.id.in_(order_ids)).order_by(Order.created_at.desc()).all()
+
+    return orders
