@@ -1,4 +1,4 @@
-from App.models.Animals import Animal
+from App.models.Animals import Animal,AnimalImage
 from App.models.Farmers import Farmer
 from App.models.Users import User
 from App.extensions import mail
@@ -106,3 +106,120 @@ def send_email(msg, recipient_email):
         error_msg = str(e)
         print(f"Error sending email to {recipient_email}: {error_msg}")
         return False, error_msg
+
+
+
+def group_items_by_farmer_util_for_user(items):
+    if not isinstance(items, list):
+        raise ValueError("'items' must be a list")
+
+    farmer_items = {}
+
+    # Step 1: Collect animal_ids from items
+    animal_ids = [item.get("animal_id") for item in items if item.get("animal_id")]
+
+    # Step 2: Query all animals at once (to reduce DB hits)
+    animals = Animal.query.filter(Animal.id.in_(animal_ids)).all()
+    animal_map = {animal.id: animal for animal in animals}
+
+    for item in items:
+        animal_id = item.get("animal_id")
+        if not animal_id or animal_id not in animal_map:
+            continue
+
+        animal = animal_map[animal_id]
+        farmer_id = animal.farmer_id
+        if farmer_id not in farmer_items:
+            farmer_items[farmer_id] = []
+
+        enriched_item = {
+            "animal_id": animal.id,
+            "name": animal.name,
+            "type": animal.type,
+            "breed": animal.breed,
+            "age": animal.age,
+            "price": animal.price,
+            "description": animal.description,
+            "is_available": animal.is_available,
+            "images": [img.url for img in animal.images],
+            "image_count": len(animal.images),
+            "quantity": item.get("quantity"),
+            "price_at_order_time": item.get("price_at_order_time")
+        }
+
+        farmer_items[farmer_id].append(enriched_item)
+
+    # Step 3: Build final payload with farmer contact
+    response_payload = []
+
+    for farmer_id, items_list in farmer_items.items():
+        contact = get_farmer_contact(farmer_id)
+        if not contact:
+            print(f"Farmer not found: {farmer_id}")
+            continue
+
+        response_payload.append({
+            "id": farmer_id,
+            "email": contact.get("email"),
+            "username": contact.get("username"),
+            "items": items_list
+        })
+
+    return response_payload
+
+
+
+def group_items_by_farmer_util_for_farmer(user_id, items):
+    if not isinstance(items, list):
+        raise ValueError("'items' must be a list")
+
+    current_user_id = user_id  
+    farmer_items = {}
+
+    for item in items:
+        animal_id = item.get("animal_id")
+        if not animal_id:
+            continue
+
+        animal = Animal.query.get(animal_id)
+        if not animal:
+            continue
+
+        # Only include items from animals owned by the current farmer
+        if animal.farmer_id != current_user_id:
+            continue
+
+        if animal.farmer_id not in farmer_items:
+            farmer_items[animal.farmer_id] = []
+
+        enriched_item = {
+            "animal_id": animal.id,
+            "name": animal.name,
+            "type": animal.type,
+            "breed": animal.breed,
+            "age": animal.age,
+            "price": animal.price,
+            "description": animal.description,
+            "is_available": animal.is_available,
+            "image_count": len(animal.images),
+            "quantity": item.get("quantity"),
+            "price_at_order_time": item.get("price_at_order_time")
+        }
+
+        farmer_items[animal.farmer_id].append(enriched_item)
+
+    response_payload = []
+
+    for farmer_id, items_list in farmer_items.items():
+        contact = get_farmer_contact(farmer_id)
+        if not contact:
+            continue
+
+        response_payload.append({
+            "id": farmer_id,
+            "email": contact.get("email"),
+            "username": contact.get("username"),
+            "items": items_list
+        })
+
+    return response_payload

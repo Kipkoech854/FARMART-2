@@ -23,37 +23,31 @@ def register_farmer():
     if not email or not password or not username:
         return jsonify({"error": "Missing required fields"}), 400
 
+    # Prevent duplicate email registrations
     existing = Farmer.query.filter_by(email=email).first()
     if existing:
         return jsonify({"error": "Email already registered"}), 409
 
-    new_farmer = Farmer(
-        email=email,
-        username=username,
-        phone=data.get('phone'),
-        profile_picture=data.get('profile_picture'),
-        verified='unverified'
-    )
-    new_farmer.set_password(password)
+    # Hash password before encoding it
+    hashed_password = generate_password_hash(password)
 
-    db.session.add(new_farmer)
-    db.session.commit()
+    # Prepare token payload
+    token_data = {
+        'email': email,
+        'username': username,
+        'password': hashed_password,
+        'phone': data.get('phone'),
+        'profile_picture': data.get('profile_picture')
+    }
 
-  
-    token = generate_verification_token(email)
+    token = generate_verification_token(token_data)
     verify_url = url_for('farmer_routes.verify_email', token=token, _external=True)
-
-  
     send_verification_email(email, username, verify_url)
 
     return jsonify({
-        "message": "Farmer registered. Please verify your email.",
-        "farmer": {
-            "id": new_farmer.id,
-            "username": new_farmer.username,
-            "email": new_farmer.email
-        }
+        "message": "Check your email to verify your account. Your data will only be saved after verification."
     }), 200
+
 
 @farmer_routes.route('/farmers/login', methods=['POST'])
 def login_farmer():
@@ -66,7 +60,12 @@ def login_farmer():
         if farmer.verified != 'verified':
             return jsonify({"error": "Account not verified. Please check your email."}), 403
 
-        access_token = create_access_token(identity=farmer.id)
+        # Add role here
+        access_token = create_access_token(
+            identity=farmer.id,
+            additional_claims={"role": "farmer"}
+        )
+
         return jsonify({
             "message": "Login successful",
             "token": access_token,
@@ -189,7 +188,7 @@ def get_farmer_feedback():
 @farmer_routes.route('/farmers/verify/<token>', methods=['GET'])
 def verify_email(token):
     try:
-        email = confirm_verification_token(token)  
+        data = confirm_verification_token(token)
     except SignatureExpired:
         return redirect("https://your-frontend.com/verify?status=expired")
     except BadSignature:
@@ -197,13 +196,31 @@ def verify_email(token):
     except Exception as e:
         return redirect(f"https://your-frontend.com/verify?status=error&msg={str(e)}")
 
-    farmer = Farmer.query.filter_by(email=email).first()
-    if not farmer:
-        return redirect("https://your-frontend.com/verify?status=not_found")
+    email = data.get('email')
+    username = data.get('username')
 
-    farmer.verified = 'verified'
+    # Prevent duplicate creation
+    if Farmer.query.filter_by(email=email).first():
+        return redirect("https://your-frontend.com/verify?status=already_exists")
+
+    new_farmer = Farmer(
+        email=email,
+        username=username,
+        phone=data.get('phone'),
+        profile_picture=data.get('profile_picture'),
+        verified='verified'
+    )
+    new_farmer.password = data['password']  # hashed already
+
+    db.session.add(new_farmer)
     db.session.commit()
 
-    send_farmer_welcome_email(farmer.email, farmer.username)
+    send_farmer_welcome_email(email, username)
 
-    return redirect(f"https://your-frontend.com/verify?status=success&email={farmer.email}")
+    # Issue token now that farmer is registered
+    access_token = create_access_token(
+        identity=new_farmer.id,
+        additional_claims={"role": "farmer"}
+    )
+
+    return redirect(f"https://your-frontend.com/verify?status=success&token={access_token}&email={email}")
