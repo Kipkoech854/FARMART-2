@@ -129,7 +129,7 @@ def past_orders():
         if role == "customer":
             enriched_animals = group_items_by_farmer_util_for_user(items)
 
-            # 👇 Add farmer contact info per group
+            
             for group in enriched_animals:
                 farmer_id = group.get("farmer_id")
                 farmer_info = get_farmer_contact(farmer_id)
@@ -292,6 +292,7 @@ def get_orders_by_status():
                 "price": float(animal.price),
                 "description": animal.description,
                 "is_available": animal.is_available,
+                "images":animal.images,
                 "image_count": len(animal.images),
                 "quantity": item.quantity,
                 "price_at_order_time": float(item.price_at_order_time),
@@ -313,6 +314,9 @@ def get_orders_by_status():
             "status": order.status,
             "created_at": order.created_at.isoformat(),
             "items": enriched_items,
+            "delivered": order.delivered,
+            "paid": order.paid,
+            "amount": order.amount
         }
 
         
