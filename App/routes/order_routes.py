@@ -49,7 +49,11 @@ def create_order():
 
     user_id = get_jwt_identity()
     amount = data['amount']
+    payment_method = data['payment_method']
+    pickup_station=data['pickup_station']
     items = data['items']
+    
+
 
     if not user_id:
         return jsonify([{'error': 'Missing user_id'}]), 400

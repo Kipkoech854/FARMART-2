@@ -31,32 +31,34 @@ def create_animal():
             breed=data.get('breed'),
             age=data.get('age'),
             price=data.get('price'),
+            location=data.get('location'),
             description=data.get('description'),
             is_available=True,
             farmer_id=current_user_id
         )
         db.session.add(new_animal)
-        db.session.commit()
+        db.session.commit() 
 
         image_urls = data.get('images', [])
-        for url in image_urls:
-            new_image = AnimalImage(url=url, animal_id=new_animal.id)
+        for img in image_urls:
+            image_url = img['url'] if isinstance(img, dict) else img
+            new_image = AnimalImage(url=image_url, animal_id=new_animal.id)
             db.session.add(new_image)
-        db.session.commit()
 
-        
+        db.session.commit()  
+
         animal_with_images = Animal.query.get(new_animal.id)
-
-      
         payload = animal_schema.dump(animal_with_images)
         payload['farmer_id'] = current_user_id
 
         from App.Utils.Animal_email_sender import send_animal_creation_confirmation
-
         send_animal_creation_confirmation(payload)
+
+        return jsonify(payload), 201  
 
     except Exception as e:
         print("Database or creation error:", str(e))
+        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 

@@ -13,8 +13,8 @@ class Animal(db.Model):
     price = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text)
     is_available = db.Column(db.Boolean, default=True)
-
-    farmer_id = db.Column(db.String, db.ForeignKey('users.id', name='fk_animals_farmer_id_users'))
+    location = db.Column(db.String, nullable = False)
+    farmer_id = db.Column(db.String, db.ForeignKey('farmers.id', name='fk_animals_farmer_id_users'))
 
     images = db.relationship("AnimalImage", backref="animal", cascade="all, delete-orphan")
     likes = db.relationship("Like", back_populates="animal", cascade="all, delete-orphan")

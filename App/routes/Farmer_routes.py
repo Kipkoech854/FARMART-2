@@ -6,7 +6,8 @@ from App.models.Feedback import Feedback
 from App.extensions import db
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from App.Utils.Token_Utils import generate_verification_token, confirm_verification_token
-from App.Utils.Verification_mails import send_verification_email
+from App.Utils.Verification_mails import send_farmer_welcome_email
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 
@@ -208,9 +209,11 @@ def verify_email(token):
         username=username,
         phone=data.get('phone'),
         profile_picture=data.get('profile_picture'),
-        verified='verified'
-    )
-    new_farmer.password = data['password']  # hashed already
+        verified='verified',
+        password_hash=data['password']  
+        )
+
+    
 
     db.session.add(new_farmer)
     db.session.commit()

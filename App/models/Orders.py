@@ -18,7 +18,8 @@ class Order(db.Model):
     pickup_station = db.Column(db.String, nullable = True)
     payment_method = db.Column(db.String, default='cash')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+    delivery_method = db.Column(db.String, nullable=False)
+    total= db.Column(db.Float,nullable=False)
 
     items = db.relationship("OrderItem", backref="order", cascade="all, delete-orphan")
 
