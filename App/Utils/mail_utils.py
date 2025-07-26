@@ -14,7 +14,7 @@ def get_user_contact(user_id):
     user = User.query.get(user_id)
     if not user:
         return None
-    return {"email": user.email, "username": user.username, "profile_picture": farmer.profile_picture}
+    return {"email": user.email, "username": user.username, "profile_picture": user.profile_picture}
 
 def group_items_by_farmer_util(items):
     if not isinstance(items, list):

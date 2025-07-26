@@ -44,7 +44,7 @@ def create_app(config_name=None):
     ma.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    CORS(app, resources={r"/api/*": {"origins": "http://127.0.0.1:5173"}}, supports_credentials=True, allow_headers="*", methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"])
+    CORS(app, supports_credentials=True)
 
     mail.init_app(app)
     bcrypt.init_app(app)

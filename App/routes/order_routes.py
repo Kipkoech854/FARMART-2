@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, Response
 from App.services.Order_services import OrderService
 from App.Schema.Order_schema import OrderSchema
+from datetime import datetime, timezone
 from decimal import Decimal
 from App.models.Orders import Order, OrderItem
 import requests
@@ -37,12 +38,14 @@ def role_required(*required_roles):
         return wrapped
     return wrapper
 
+from datetime import datetime, timezone
+
 @Order_bp.route('/create', methods=['POST'])
 @jwt_required()
 def create_order():
     print("🟢 Request received to create order")
     data = request.get_json()
-    
+
     user_id = get_jwt_identity()
     amount = data.get('amount')
     pickup_station = data.get('pickup_station')
@@ -50,23 +53,35 @@ def create_order():
     payment_method = data.get('payment_method')
     delivery_method = data.get('delivery_method')
     items = data.get('items', [])
-    
-   
-    
-    
+
+    # Create Order
     order = OrderService.create_order(user_id, amount, delivery_method, pickup_station, payment_method, total)
-  
-    
+
+    # Create Order Items
     for item in items:
-        
         animal_id = item.get('animal_id')
         quantity = item.get('quantity')
         price_at_order_time = item.get('price_at_order_time')
-        
-        result, item_status = OrderService.create_order_Item(order.id, animal_id, quantity, price_at_order_time)
-        
 
-    return jsonify({'message': 'Order and items created successfully', 'order_id': order.id}), 200
+        OrderService.create_order_Item(order.id, animal_id, quantity, price_at_order_time)
+
+    # Get fresh order instance including relationships
+    
+    order_schema = OrderSchema()
+    full_order = order_schema.dump(order)  # This now includes `items`
+
+    created_at = datetime.now(timezone.utc)
+
+    # Send once to user with full enriched items
+    send_order_confirmation_to_user(user_id, order.id, created_at, amount, full_order.get('items', []))
+
+    # Send per farmer based on plain items (they’ll be enriched inside the util)
+    send_order_confirmation_to_farmers(full_order.get('items', []))
+
+    return jsonify({"message": "Order created successfully!"}), 201
+
+
+
 
 
 
