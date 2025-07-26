@@ -9,25 +9,24 @@ class OrderService:
     def __init__(self):
         pass
 
-    def create_order(self, user_id, amount):
-        """Creating a new order"""
-        try:
-            if not isinstance(amount, Decimal):
-                amount = Decimal(str(amount))
+    
+    def create_order(user_id, amount, delivery_method, pickup_station, payment_method, total):
+        new_order = Order(
+            user_id=user_id,
+            amount=amount,
+            delivery_method=delivery_method,
+            pickup_station=pickup_station,
+            payment_method=payment_method,
+            total=total
+        )
+        db.session.add(new_order)
+        db.session.commit()
+        return new_order
 
-            new_order = Order(user_id=user_id, amount=amount)  # use model class here
 
-            db.session.add(new_order)
-            db.session.commit()
-
-            print('new order created!')
-            return new_order, 201
-
-        except Exception as e:
-            db.session.rollback()
-            return jsonify([{'DatabaseError': str(e)}]), 500
-
-    def create_order_Item(self, order_id, animal_id, quantity, price_at_order_time):
+   
+    @staticmethod
+    def create_order_Item(order_id, animal_id, quantity, price_at_order_time):
         """Creating a new order item instance"""
         try:
             if not isinstance(price_at_order_time, Decimal):
@@ -48,6 +47,7 @@ class OrderService:
         except Exception as e:
             db.session.rollback()
             return jsonify([{"error": str(e)}]), 500
+
 
     def update_status(self, user_id, order_id, status):
         try:

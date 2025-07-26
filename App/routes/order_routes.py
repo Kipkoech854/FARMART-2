@@ -39,69 +39,34 @@ def role_required(*required_roles):
 
 @Order_bp.route('/create', methods=['POST'])
 @jwt_required()
-@role_required('customer')
 def create_order():
-    order_service = OrderService()
+    print("🟢 Request received to create order")
     data = request.get_json()
-
-    if not data:
-        return jsonify([{'error': 'Missing request body'}]), 400
-
-    user_id = get_jwt_identity()
-    amount = data['amount']
-    payment_method = data['payment_method']
-    pickup_station=data['pickup_station']
-    items = data['items']
     
-
-
-    if not user_id:
-        return jsonify([{'error': 'Missing user_id'}]), 400
-    if not amount:
-        return jsonify([{'error': 'Missing order amount'}]), 400
-    if not items or not isinstance(items, list):
-        return jsonify([{'error': 'Invalid or empty items list'}]), 400
-
-    order, status = order_service.create_order(user_id, amount)
-    if status != 201:
-        return order, status
-
+    user_id = get_jwt_identity()
+    amount = data.get('amount')
+    pickup_station = data.get('pickup_station')
+    total = data.get('total')
+    payment_method = data.get('payment_method')
+    delivery_method = data.get('delivery_method')
+    items = data.get('items', [])
+    
+   
+    
+    
+    order = OrderService.create_order(user_id, amount, delivery_method, pickup_station, payment_method, total)
+  
+    
     for item in items:
+        
         animal_id = item.get('animal_id')
         quantity = item.get('quantity')
-        price = item.get('price_at_order_time')
+        price_at_order_time = item.get('price_at_order_time')
+        
+        result, item_status = OrderService.create_order_Item(order.id, animal_id, quantity, price_at_order_time)
+        
 
-        if not all([animal_id, quantity, price]):
-            continue
-
-        result, item_status = order_service.create_order_Item(order.id, animal_id, quantity, price)
-        if item_status != 201:
-            return result, item_status  
-
-    payload = {
-        'id': order.id,
-        'created_at': str(order.created_at),
-        'amount': str(order.amount),
-        'items': items
-    }
-
-   
-    user_mail_success, user_error = send_order_confirmation_to_user(
-        user_id=user_id,
-        order_id=order.id,
-        created_at=str(order.created_at),
-        amount=str(order.amount),
-        items=items
-    )
-
-    if not user_mail_success:
-        print(f"User email failed: {user_error}")
-
-    successful, failed = send_order_confirmation_to_farmers(items)
-    if failed:
-        print("Some farmer emails failed:", failed)
-
-    return jsonify(OrderSchema().dump(order)), 201
+    return jsonify({'message': 'Order and items created successfully', 'order_id': order.id}), 200
 
 
 
@@ -157,6 +122,8 @@ def past_orders():
             "delivered": order.delivered,
             "amount": float(order.amount),
             "pickup_station": order.pickup_station,
+            'location':orders.location,
+            'total':order.total,
             "payment_method": order.payment_method,
             "created_at": order.created_at.isoformat(),
             "animals": enriched_animals
