@@ -64,8 +64,14 @@ def login_farmer():
         # Add role here
         access_token = create_access_token(
             identity=farmer.id,
-            additional_claims={"role": "farmer"}
-        )
+            additional_claims={
+            "username": farmer.username,
+            "email": farmer.email,
+            "profile_picture": farmer.profile_picture,  # ✅ Add this
+            "role": "farmer"
+            }
+            )
+
 
         return jsonify({
             "message": "Login successful",
@@ -73,7 +79,8 @@ def login_farmer():
             "farmer": {
                 "id": farmer.id,
                 "username": farmer.username,
-                "email": farmer.email
+                "email": farmer.email,
+                'profile_picture':farmer.profile_picture
             }
         }), 200
 

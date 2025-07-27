@@ -22,7 +22,7 @@ def register():
     if User.query.filter_by(email=data['email']).first():
         return jsonify({"msg": "Email already exists"}), 400
 
-    required_fields = ['username', 'email', 'password', 'phone']
+    required_fields = ['username', 'email', 'password']
     if not all(data.get(field) for field in required_fields):
         return jsonify({"msg": "Missing required fields"}), 400
 
@@ -34,14 +34,13 @@ def register():
         "username": data['username'],
         "email": data['email'],
         "password": hashed_password,
-        "phone": data['phone'],
         "role": data.get('role', 'customer'),
         "profile_picture": data.get('profile_picture')
     }
 
     
     token = generate_verification_token(token_data)
-    verify_url = url_for('auth_bp.verify_email', token=token, _external=True) 
+    verify_url = url_for('auth.verify_email', token=token, _external=True) 
     send_verification_email(data['email'], data['username'], verify_url)
 
     return jsonify({"msg": "Verification email sent. Please check your inbox."}), 200
@@ -61,13 +60,19 @@ def login():
     if user.verified == 'disabled':
         return jsonify({"msg": "Your account has been disabled."}), 403
 
-    
+    # Construct token with extra claims
     access_token = create_access_token(
         identity=user.id,
-        additional_claims={"role": "customer"}
+        additional_claims={
+            "role": "customer",
+            "username": user.username,
+            "email": user.email,
+            "profile_picture": user.profile_picture  # adjust field name if different
+        }
     )
 
     return jsonify(access_token=access_token), 200
+
 
 
 

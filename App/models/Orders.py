@@ -20,6 +20,7 @@ class Order(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     delivery_method = db.Column(db.String, nullable=False)
     total= db.Column(db.Float,nullable=False)
+    
 
     items = db.relationship("OrderItem", backref="order", cascade="all, delete-orphan")
 
@@ -28,11 +29,15 @@ class OrderItem(db.Model):
     __tablename__ = 'order_items'
 
     id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    order_id = db.Column(db.String, db.ForeignKey('orders.id'))
-    animal_id = db.Column(db.String, db.ForeignKey('animals.id'))
-    quantity = db.Column(db.Integer, default=1)
-    price_at_order_time = db.Column(Numeric(10,2), nullable = False)
+    order_id = db.Column(db.String, db.ForeignKey('orders.id'), nullable=False)
+    animal_id = db.Column(db.String, db.ForeignKey('animals.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    price_at_order_time = db.Column(db.Numeric(10, 2), nullable=False)
 
+    farmer_id = db.Column(db.String, db.ForeignKey('farmers.id'), nullable=False) 
+    farmer = db.relationship("Farmer", backref="order_items")  
+    animal = db.relationship("Animal", backref="order_items")  
+                     
 
 
 

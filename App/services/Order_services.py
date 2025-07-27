@@ -26,7 +26,7 @@ class OrderService:
 
    
     @staticmethod
-    def create_order_Item(order_id, animal_id, quantity, price_at_order_time):
+    def create_order_Item(order_id, animal_id, quantity, price_at_order_time, farmer_id):
         """Creating a new order item instance"""
         try:
             if not isinstance(price_at_order_time, Decimal):
@@ -36,7 +36,8 @@ class OrderService:
                 order_id=order_id,
                 animal_id=animal_id,
                 quantity=quantity,
-                price_at_order_time=price_at_order_time
+                price_at_order_time=price_at_order_time,
+                farmer_id=farmer_id
             )
 
             db.session.add(new_item)

@@ -8,7 +8,7 @@ def get_farmer_contact(farmer_id):
     farmer = Farmer.query.get(farmer_id)
     if not farmer:
         return None
-    return {"email": farmer.email, "username": farmer.username ,"profile_picture":farmer.profile_picture}
+    return {"email": farmer.email, "username": farmer.username , "profile_picture":farmer.profile_picture}
 
 def get_user_contact(user_id):
     user = User.query.get(user_id)
@@ -63,6 +63,7 @@ def group_items_by_farmer_util(items):
             "id": farmer_id,
             "email": contact.get("email"),
             "username": contact.get("username"),
+            'profile_picture':contact.get('profile_picture'),
             "items": items_list
         })
 
@@ -130,7 +131,10 @@ def group_items_by_farmer_util_for_user(items):
         animal = animal_map[animal_id]
         farmer_id = animal.farmer_id
         if farmer_id not in farmer_items:
-            farmer_items[farmer_id] = []
+            farmer_items[farmer_id] = {
+                "farmer": None,  # We'll populate this later
+                "items": []
+            }
 
         enriched_item = {
             "animal_id": animal.id,
@@ -141,29 +145,32 @@ def group_items_by_farmer_util_for_user(items):
             "price": animal.price,
             "description": animal.description,
             "is_available": animal.is_available,
+            "location": animal.location,
             "images": [img.url for img in animal.images],
             "image_count": len(animal.images),
             "quantity": item.get("quantity"),
             "price_at_order_time": item.get("price_at_order_time")
         }
 
-        farmer_items[farmer_id].append(enriched_item)
+        farmer_items[farmer_id]["items"].append(enriched_item)
 
-    # Step 3: Build final payload with farmer contact
+    # Step 3: Populate farmer info
     response_payload = []
 
-    for farmer_id, items_list in farmer_items.items():
+    for farmer_id, group in farmer_items.items():
         contact = get_farmer_contact(farmer_id)
         if not contact:
             print(f"Farmer not found: {farmer_id}")
             continue
 
-        response_payload.append({
+        group["farmer"] = {
             "id": farmer_id,
             "email": contact.get("email"),
             "username": contact.get("username"),
-            "items": items_list
-        })
+            'profile_picture':contact.get('profile_picture')
+        }
+
+        response_payload.append(group)
 
     return response_payload
 
@@ -173,7 +180,7 @@ def group_items_by_farmer_util_for_farmer(user_id, items):
     if not isinstance(items, list):
         raise ValueError("'items' must be a list")
 
-    current_user_id = user_id  
+    current_user_id = user_id
     farmer_items = {}
 
     for item in items:
@@ -182,15 +189,11 @@ def group_items_by_farmer_util_for_farmer(user_id, items):
             continue
 
         animal = Animal.query.get(animal_id)
-        if not animal:
+        if not animal or animal.farmer_id != current_user_id:
             continue
 
-        # Only include items from animals owned by the current farmer
-        if animal.farmer_id != current_user_id:
-            continue
-
-        if animal.farmer_id not in farmer_items:
-            farmer_items[animal.farmer_id] = []
+        if current_user_id not in farmer_items:
+            farmer_items[current_user_id] = []
 
         enriched_item = {
             "animal_id": animal.id,
@@ -201,29 +204,27 @@ def group_items_by_farmer_util_for_farmer(user_id, items):
             "price": animal.price,
             "description": animal.description,
             "is_available": animal.is_available,
+            "location": animal.location,
+            "images": [img.url for img in animal.images],
             "image_count": len(animal.images),
             "quantity": item.get("quantity"),
             "price_at_order_time": item.get("price_at_order_time")
         }
 
-        farmer_items[animal.farmer_id].append(enriched_item)
+        farmer_items[current_user_id].append(enriched_item)
 
     response_payload = []
 
-    for farmer_id, items_list in farmer_items.items():
-        contact = get_farmer_contact(farmer_id)
-        if not contact:
-            continue
-
+    contact = get_farmer_contact(current_user_id)
+    if contact and farmer_items.get(current_user_id):
         response_payload.append({
-            "id": farmer_id,
+            "id": current_user_id,
             "email": contact.get("email"),
             "username": contact.get("username"),
-            "items": items_list
+            "items": farmer_items[current_user_id]
         })
 
     return response_payload
-
 
 
 def get_orders_relevant_to_farmer(farmer_id):

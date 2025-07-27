@@ -6,7 +6,7 @@ from decimal import Decimal
 from App.models.Orders import Order, OrderItem
 import requests
 from App.extensions import db
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt, verify_jwt_in_request
 from App.Utils.Order_email_senders import send_order_confirmation_to_user, send_order_confirmation_to_farmers
 from functools import wraps
 from App.Utils.mail_utils import group_items_by_farmer_util_for_user, group_items_by_farmer_util_for_farmer, get_farmer_contact, get_user_contact
@@ -20,25 +20,18 @@ def get_jwt_role():
     return jwt_data.get("role") 
 
 
-def role_required(*required_roles):
-    def wrapper(fn):
+def role_required(*roles):
+    def decorator(fn):
         @wraps(fn)
-        def wrapped(*args, **kwargs):
-            try:
-                verify_jwt_in_request()
-                claims = get_jwt()
-            except Exception as e:
-                return jsonify({"error": "Token missing or invalid", "details": str(e)}), 401
-
-            user_role = claims.get('role')
-            if user_role not in required_roles:
-                return jsonify({"error": "Access denied: insufficient permissions"}), 403
-
+        def wrapper(*args, **kwargs):
+            claims = get_jwt()
+            role = claims.get("role")
+            if role not in roles:
+                return jsonify({"error": "Forbidden"}), 403
             return fn(*args, **kwargs)
-        return wrapped
-    return wrapper
+        return wrapper
+    return decorator
 
-from datetime import datetime, timezone
 
 @Order_bp.route('/create', methods=['POST'])
 @jwt_required()
@@ -46,13 +39,19 @@ def create_order():
     print("🟢 Request received to create order")
     data = request.get_json()
 
+    required_fields = ['amount', 'pickup_station', 'total', 'payment_method', 'delivery_method', 'items']
+    missing_fields = [field for field in required_fields if not data.get(field)]
+
+    if missing_fields:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+
     user_id = get_jwt_identity()
-    amount = data.get('amount')
-    pickup_station = data.get('pickup_station')
-    total = data.get('total')
-    payment_method = data.get('payment_method')
-    delivery_method = data.get('delivery_method')
-    items = data.get('items', [])
+    amount = data['amount']
+    pickup_station = data['pickup_station']
+    total = data['total']
+    payment_method = data['payment_method']
+    delivery_method = data['delivery_method']
+    items = data['items']
 
     # Create Order
     order = OrderService.create_order(user_id, amount, delivery_method, pickup_station, payment_method, total)
@@ -63,23 +62,30 @@ def create_order():
         quantity = item.get('quantity')
         price_at_order_time = item.get('price_at_order_time')
 
-        OrderService.create_order_Item(order.id, animal_id, quantity, price_at_order_time)
+        # Optional: validate each item
+        if not all([animal_id, quantity, price_at_order_time]):
+            return jsonify({"error": "Each item must include 'animal_id', 'quantity', and 'price_at_order_time'"}), 400
+        
+        animal = Animal.query.get(animal_id)
+        if not animal:
+            return jsonify({"error": f"Animal with id {animal_id} not found"}), 404
 
-    # Get fresh order instance including relationships
-    
+        farmer_id = animal.farmer_id
+
+        print(f"Creating OrderItem: animal_id={animal_id}, quantity={quantity}, farmer_id={farmer_id}")
+
+        OrderService.create_order_Item(order.id, animal_id, quantity, price_at_order_time, farmer_id)
+       
+
     order_schema = OrderSchema()
-    full_order = order_schema.dump(order)  # This now includes `items`
+    full_order = order_schema.dump(order)
 
     created_at = datetime.now(timezone.utc)
 
-    # Send once to user with full enriched items
     send_order_confirmation_to_user(user_id, order.id, created_at, amount, full_order.get('items', []))
-
-    # Send per farmer based on plain items (they’ll be enriched inside the util)
     send_order_confirmation_to_farmers(full_order.get('items', []))
 
     return jsonify({"message": "Order created successfully!"}), 201
-
 
 
 
@@ -89,19 +95,24 @@ def create_order():
 @jwt_required()
 @role_required("farmer", "customer")
 def past_orders():
-    id = get_jwt_identity()
+    verify_jwt_in_request()
+    
+    user_id = get_jwt_identity()
     role = get_jwt_role()
 
+    # 1. Get orders based on role
     if role == "customer":
-        orders = Order.query.filter_by(user_id=id).order_by(Order.created_at.desc()).all()
+        orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).all()
     else:
-        orders = get_orders_relevant_to_farmer(id)
+        orders = Order.query.filter(Order.items.any(OrderItem.farmer_id == user_id)).all()
 
     if not orders:
         return jsonify([{'error': 'empty order history'}]), 404
 
     full_orders = []
+
     for order in orders:
+        # 2. Extract order items
         items = [
             {
                 "animal_id": item.animal_id,
@@ -110,26 +121,15 @@ def past_orders():
             } for item in order.items
         ]
 
+        # 3. Enrich animal data based on role
         if role == "customer":
             enriched_animals = group_items_by_farmer_util_for_user(items)
-
-            
-            for group in enriched_animals:
-                farmer_id = group.get("farmer_id")
-                farmer_info = get_farmer_contact(farmer_id)
-                if farmer_info:
-                    group["farmer_info"] = {
-                        "username": farmer_info.get("username"),
-                        "email": farmer_info.get("email"),
-                        "phone_number": farmer_info.get("phone_number"),
-                        "profile_picture": farmer_info.get("profile_picture")
-                    }
-
         elif role == "farmer":
-            enriched_animals = group_items_by_farmer_util_for_farmer(user_id=id, items=items)
+            enriched_animals = group_items_by_farmer_util_for_farmer(user_id=user_id, items=items)
         else:
             enriched_animals = []
 
+        # 4. Build base order response
         order_dict = {
             "id": order.id,
             "status": order.status,
@@ -137,14 +137,13 @@ def past_orders():
             "delivered": order.delivered,
             "amount": float(order.amount),
             "pickup_station": order.pickup_station,
-            'location':orders.location,
-            'total':order.total,
+            "total": order.total,
             "payment_method": order.payment_method,
             "created_at": order.created_at.isoformat(),
             "animals": enriched_animals
         }
 
-        # If farmer, enrich with customer info
+        # 5. If farmer, attach customer contact info
         if role == "farmer":
             user_info = get_user_contact(order.user_id)
             if user_info:
@@ -164,8 +163,9 @@ def past_orders():
 @jwt_required()
 @role_required("farmer", "customer")
 def get_order_by_id(order_id):
+    verify_jwt_in_request()
     user_id = get_jwt_identity()
-    role = g.current_role
+    role = get_jwt_role()
 
     order = Order.query.filter_by(id=order_id).first()
 
@@ -230,6 +230,7 @@ def get_order_by_id(order_id):
 @Order_bp.route('/status', methods=['GET'])
 @jwt_required()
 def get_orders_by_status():
+    verify_jwt_in_request()
     user_id = get_jwt_identity()
     role = get_jwt()['role']
     status_param = request.args.get('status', '').lower()
@@ -323,6 +324,7 @@ def get_orders_by_status():
 @Order_bp.route('/Delivered', methods=['GET'])
 @jwt_required()
 def delivered_orders():
+    verify_jwt_in_request()
     user_id = get_jwt_identity()
     role = get_jwt().get('role')
 
@@ -401,6 +403,7 @@ def delivered_orders():
 @Order_bp.route('/paid', methods=['GET'])
 @jwt_required()
 def get_paid_orders():
+    verify_jwt_in_request()
     user_id = get_jwt_identity()
     role = get_jwt()['role']
     paid_param = request.args.get('paid', 'false').lower()
@@ -486,7 +489,7 @@ def get_paid_orders():
 @Order_bp.route('/Status', methods=['PUT'])
 @role_required('farmer')
 def status_update():
-    
+    verify_jwt_in_request()
     new_status = request.args.get('status', '').strip().lower()
     if new_status not in ['pending', 'confirmed', 'rejected']:
         return jsonify({'error': 'Invalid status value'}), 400
@@ -537,6 +540,7 @@ def status_update():
 @jwt_required()
 @role_required('customer')
 def delivery_status_update(orderid):
+    verify_jwt_in_request()
     user_id = get_jwt_identity()
     from App.Utils.Delivery_email_senders import send_delivery_email_to_user, send_delivery_email_to_farmers
     delivered = request.args.get('delivered', 'false').lower() == 'true'
@@ -573,6 +577,7 @@ def delivery_status_update(orderid):
 @Order_bp.route('/PaymentStatus/<string:orderid>', methods=['PUT'])
 @jwt_required()
 def payment_status_update(orderid):
+    verify_jwt_in_request()
     from App.Utils.Payment_email_senders import  send_payment_confirmation_to_user, send_payment_confirmation_to_farmers
     user_id = get_jwt_identity()
 
@@ -628,6 +633,7 @@ def payment_status_update(orderid):
 @Order_bp.route('/delete/<string:order_id>', methods=['DELETE'])
 @jwt_required()
 def delete_order(order_id):
+    verify_jwt_in_request()
     user_id = get_jwt_identity()
     role = get_jwt()['role']
 
