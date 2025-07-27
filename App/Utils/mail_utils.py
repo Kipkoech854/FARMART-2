@@ -8,7 +8,13 @@ def get_farmer_contact(farmer_id):
     farmer = Farmer.query.get(farmer_id)
     if not farmer:
         return None
-    return {"email": farmer.email, "username": farmer.username , "profile_picture":farmer.profile_picture}
+    return {
+        "email": farmer.email,
+        "id": str(farmer.id),
+        "username": farmer.username,
+        "profile_picture": farmer.profile_picture
+    }
+
 
 def get_user_contact(user_id):
     user = User.query.get(user_id)

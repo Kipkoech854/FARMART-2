@@ -16,36 +16,45 @@ endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 @payment_bp.route('/create-checkout-session', methods=['POST', 'OPTIONS'])
 def create_checkout_session():
     if request.method == 'OPTIONS':
-        return '', 200 
+        return '', 200
+
     try:
-        data = request.json
-        items = data.get('items', [])
+        data = request.get_json()
+
+        # Debugging logs (remove in production)
+        print("Received payload:", data)
+
+        items = data.get('items')
+        if not isinstance(items, list):
+            return jsonify({'error': 'Invalid items format — expected a list of item objects'}), 400
+
         shipping_cost = data.get('shipping_cost', 0)
-        pickup_location = data.get('pickup_location')
-        shipping_method = data.get('shipping_method')
+        pickup_location = data.get('pickup_location', '')
+        shipping_method = data.get('shipping_method', '')
 
         line_items = []
-
         for item in items:
+            # Defensive check
+            if not all(k in item for k in ('name', 'price')):
+                return jsonify({'error': 'Each item must include name and price'}), 400
+
             line_items.append({
                 'price_data': {
                     'currency': 'kes',
                     'product_data': {
                         'name': item['name'],
                     },
-                    'unit_amount': int(item['price'] * 100),  # cents
+                    'unit_amount': int(float(item['price']) * 100),  # Convert to cents
                 },
                 'quantity': item.get('quantity', 1),
             })
 
-        # attach metadata to track later in webhook
         metadata = {
             'shipping_cost': str(shipping_cost),
             'pickup_location': pickup_location,
             'shipping_method': shipping_method,
-            'item_ids': ','.join([str(item['id']) for item in items])  
-           }
-
+            'item_ids': ','.join([str(item.get('id', '')) for item in items])
+        }
 
         session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -57,7 +66,9 @@ def create_checkout_session():
         )
 
         return jsonify({'url': session.url})
+
     except Exception as e:
+        print("Stripe error:", e)
         return jsonify({'error': str(e)}), 400
 
 

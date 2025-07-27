@@ -3,6 +3,7 @@ from App.services.Order_services import OrderService
 from App.Schema.Order_schema import OrderSchema
 from datetime import datetime, timezone
 from decimal import Decimal
+from App.models.Farmers import Farmer
 from App.models.Orders import Order, OrderItem
 import requests
 from App.extensions import db
@@ -10,9 +11,13 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from App.Utils.Order_email_senders import send_order_confirmation_to_user, send_order_confirmation_to_farmers
 from functools import wraps
 from App.Utils.mail_utils import group_items_by_farmer_util_for_user, group_items_by_farmer_util_for_farmer, get_farmer_contact, get_user_contact
+from App.models.Animals import Animal
+from flask_cors import CORS
+from App.Utils.Delivery_email_senders import send_delivery_email_to_user, send_delivery_email_to_farmers
 
 
 Order_bp = Blueprint('Order_bp', __name__)
+CORS(Order_bp, origins=["http://127.0.0.1:5173"], supports_credentials=True)
 
 
 def get_jwt_role():
@@ -241,14 +246,10 @@ def get_orders_by_status():
 
     query = Order.query.filter(Order.status.ilike(f'%{status_param}%')).order_by(Order.created_at.desc())
 
-    if role == 'user':
+    if role == 'customer':
         query = query.filter(Order.user_id == user_id)
     elif role == 'farmer':
-        query = query.filter(
-            Order.items.any(
-                OrderItem.animal.has(Animal.farmer_id == user_id)
-            )
-        )
+        query = query.filter(Order.items.any(OrderItem.farmer_id == user_id))
 
     results = query.all()
     if not results:
@@ -257,20 +258,29 @@ def get_orders_by_status():
     enriched_orders = []
 
     for order in results:
-        enriched_items = []
-
-        # Get user info (always safe, used only if role == farmer)
-        user_info = get_user_contact(order.user_id) if order.user_id else {}
+        farmer_map = {}
 
         for item in order.items:
             animal = Animal.query.get(item.animal_id)
             if not animal:
                 continue
 
-            # Farmer info for this animal
-            farmer_info = get_farmer_contact(animal.farmer_id) if animal.farmer_id else {}
+            farmer_id = animal.farmer_id
+            if farmer_id not in farmer_map:
+                farmer_info = get_farmer_contact(farmer_id)
+                if not farmer_info:
+                    continue
+                farmer_map[farmer_id] = {
+                    "farmer": {
+                        "id": farmer_id,
+                        "email": farmer_info.get("email"),
+                        "username": farmer_info.get("username"),
+                        "profile_picture": farmer_info.get("profile_picture")
+                    },
+                    "items": []
+                }
 
-            enriched_item = {
+            animal_data = {
                 "animal_id": animal.id,
                 "name": animal.name,
                 "type": animal.type,
@@ -279,40 +289,35 @@ def get_orders_by_status():
                 "price": float(animal.price),
                 "description": animal.description,
                 "is_available": animal.is_available,
-                "images":animal.images,
+                "location": animal.location,
+                "images": [img.url for img in animal.images],
                 "image_count": len(animal.images),
                 "quantity": item.quantity,
                 "price_at_order_time": float(item.price_at_order_time),
             }
 
-            
-            if role == "user":
-                enriched_item.update({
-                    "farmer_email": farmer_info.get("email"),
-                    "farmer_username": farmer_info.get("username"),
-                    "farmer_picture": farmer_info.get("profile_picture")
-                })
+            farmer_map[farmer_id]["items"].append(animal_data)
 
-            enriched_items.append(enriched_item)
+        # Make sure animals is structured properly
+        animals = list(farmer_map.values())
 
         order_info = {
             "id": order.id,
-            "user_id": order.user_id,
+            "user_id":order.user_id,
             "status": order.status,
             "created_at": order.created_at.isoformat(),
-            "items": enriched_items,
             "delivered": order.delivered,
             "paid": order.paid,
-            "amount": order.amount
+            "payment_method": order.payment_method,
+            'delivery_method':order.delivery_method,
+            "pickup_station": order.pickup_station,
+            "amount": float(order.amount),
+            "total": sum(item.price_at_order_time * item.quantity for item in order.items),
+            "animals": animals
         }
 
-        
-        if role == "farmer":
-            order_info.update({
-                "customer_email": user_info.get("email"),
-                "customer_username": user_info.get("username"),
-                "customer_picture": user_info.get("profile_picture")
-            })
+        if role == 'customer':
+            order_info["user_info"] = get_user_contact(order.user_id)
 
         enriched_orders.append(order_info)
 
@@ -333,7 +338,7 @@ def delivered_orders():
 
     query = Order.query.filter(Order.delivered == is_delivered).order_by(Order.created_at.desc())
 
-    if role == 'user':
+    if role == 'customer':
         query = query.filter(Order.user_id == user_id)
     elif role == 'farmer':
         query = query.filter(Order.items.any(
@@ -341,7 +346,6 @@ def delivered_orders():
         ))
 
     results = query.all()
-
     if not results:
         return jsonify([{
             'error': 'No delivered orders' if is_delivered else 'No undelivered orders'
@@ -349,55 +353,107 @@ def delivered_orders():
 
     enriched_orders = []
     for order in results:
-        enriched_items = []
-
-        
-        if role == 'farmer':
-            customer_info = get_user_contact(order.user_id) or {}
-        else:
-            customer_info = {}
-
-        for item in order.items:
-            animal = Animal.query.get(item.animal_id)
-            if not animal:
-                continue
-
-            
-            if role == 'user':
-                contact_info = get_farmer_contact(animal.farmer_id) or {}
-            else:
-                contact_info = {}
-
-            enriched_items.append({
-                "animal_id": animal.id,
-                "name": animal.name,
-                "type": animal.type,
-                "breed": animal.breed,
-                "age": animal.age,
-                "price": animal.price,
-                "description": animal.description,
-                "is_available": animal.is_available,
-                "image_count": len(animal.images),
-                "quantity": item.quantity,
-                "price_at_order_time": item.price_at_order_time,
-                **({"farmer_email": contact_info.get("email"),
-                    "farmer_username": contact_info.get("username"),
-                    "farmer_picture": contact_info.get("profile_picture")} if role == "user" else {})
-            })
-
-        enriched_orders.append({
+        base = {
             "id": order.id,
             "user_id": order.user_id,
             "status": order.status,
             "delivered": order.delivered,
             "created_at": order.created_at,
-            "items": enriched_items,
-            **({"customer_email": customer_info.get("email"),
-                "customer_username": customer_info.get("username"),
-                "customer_picture": customer_info.get("profile_picture")} if role == "farmer" else {})
-        })
+            "payment_method": order.payment_method,
+            "delivery_method": order.delivery_method,
+            "pickup_station": order.pickup_station,
+            "amount": order.amount,
+            "total": f"{order.total:.2f}",
+            "paid": order.paid,
+        }
+
+        user_info = get_user_contact(order.user_id)
+        if user_info:
+            base["user_info"] = user_info
+
+        if role == 'customer':
+            grouped_by_farmer = {}
+            for item in order.items:
+                animal = Animal.query.get(item.animal_id)
+                if not animal:
+                    continue
+                farmer = Farmer.query.get(animal.farmer_id)
+                if not farmer:
+                    continue
+
+                farmer_id = str(farmer.id)
+                if farmer_id not in grouped_by_farmer:
+                    grouped_by_farmer[farmer_id] = {
+                        "farmer": {
+                            "id": farmer_id,
+                            "email": farmer.email,
+                            "username": farmer.username,
+                            "profile_picture": farmer.profile_picture,
+                        },
+                        "items": []
+                    }
+
+                grouped_by_farmer[farmer_id]["items"].append({
+                    "animal_id": animal.id,
+                    "name": animal.name,
+                    "type": animal.type,
+                    "breed": animal.breed,
+                    "age": animal.age,
+                    "price": animal.price,
+                    "description": animal.description,
+                    "is_available": animal.is_available,
+                    "location": animal.location,
+                    "image_count": len(animal.images),
+                    "images": [img.url for img in animal.images],
+                    "quantity": item.quantity,
+                    "price_at_order_time": item.price_at_order_time
+                })
+
+            base["animals"] = list(grouped_by_farmer.values())
+
+        elif role == 'farmer':
+            items_grouped_by_farmer = {}
+            for item in order.items:
+                animal = Animal.query.get(item.animal_id)
+                if not animal or animal.farmer_id != user_id:
+                    continue
+
+                farmer_info = get_farmer_contact(animal.farmer_id)
+                if not farmer_info:
+                    continue
+
+                farmer_key = farmer_info["id"]
+                if farmer_key not in items_grouped_by_farmer:
+                    items_grouped_by_farmer[farmer_key] = {
+                        "email": farmer_info["email"],
+                        "username": farmer_info["username"],
+                        "id": farmer_info["id"],
+                        "items": []
+                    }
+
+                items_grouped_by_farmer[farmer_key]["items"].append({
+                    "animal_id": animal.id,
+                    "name": animal.name,
+                    "type": animal.type,
+                    "breed": animal.breed,
+                    "age": animal.age,
+                    "price": animal.price,
+                    "price_at_order_time": item.price_at_order_time,
+                    "description": animal.description,
+                    "is_available": animal.is_available,
+                    "location": animal.location,
+                    "quantity": item.quantity,
+                    "images": [img.url for img in animal.images],
+                    "image_count": len(animal.images)
+                })
+
+            if items_grouped_by_farmer:
+                base["animals"] = list(items_grouped_by_farmer.values())
+
+        enriched_orders.append(base)
 
     return jsonify(enriched_orders), 200
+
 
 
 @Order_bp.route('/paid', methods=['GET'])
@@ -486,32 +542,31 @@ def get_paid_orders():
 
 
 
-@Order_bp.route('/Status', methods=['PUT'])
-@role_required('farmer')
-def status_update():
+@Order_bp.route('/status/<string:id>', methods=['PUT', 'OPTIONS'])
+def status_update(id):
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 200
+
+    # Verify JWT and role
     verify_jwt_in_request()
+    claims = get_jwt()
+    if claims.get("role") != "farmer":
+        return jsonify({"error": "Unauthorized"}), 403
+
     new_status = request.args.get('status', '').strip().lower()
     if new_status not in ['pending', 'confirmed', 'rejected']:
         return jsonify({'error': 'Invalid status value'}), 400
 
-   
-    order_data = request.get_json()
-    if not order_data or 'id' not in order_data:
-        return jsonify({'error': 'Order ID is required'}), 400
-
-    order_id = order_data['id']
-    order = Order.query.filter_by(id=order_id).first()
+    order = Order.query.filter_by(id=id).first()
     if not order:
         return jsonify({'error': 'Order not found'}), 404
 
-   
     order.status = new_status
     db.session.commit()
 
-   
-    updated_order = Order.query.filter_by(id=order_id).first()
-    payload = OrderSchema().dump(updated_order)
-    payload['status'] = new_status  
+    payload = OrderSchema().dump(order)
+    payload['status'] = new_status
 
     try:
         from App.Utils.status_email_senders import (
@@ -536,16 +591,22 @@ def status_update():
 
 
 
-@Order_bp.route('/DeliveryStatus/<string:orderid>', methods=['PUT'])
-@jwt_required()
-@role_required('customer')
+@Order_bp.route('/DeliveryStatus/<string:orderid>', methods=['PUT', 'OPTIONS'])
 def delivery_status_update(orderid):
-    verify_jwt_in_request()
-    user_id = get_jwt_identity()
-    from App.Utils.Delivery_email_senders import send_delivery_email_to_user, send_delivery_email_to_farmers
-    delivered = request.args.get('delivered', 'false').lower() == 'true'
-    order = Order.query.filter_by(id=orderid, user_id=user_id).first()
+    # Handle CORS preflight cleanly
+    if request.method == 'OPTIONS':
+        return '', 200
 
+    # Manually verify JWT inside (not as decorator)
+    verify_jwt_in_request()
+    claims = get_jwt()
+    if claims.get("role") != "customer":
+        return jsonify({"error": "Forbidden"}), 403
+
+    user_id = get_jwt_identity()
+    delivered = request.args.get('delivered', 'false').lower() == 'true'
+
+    order = Order.query.filter_by(id=orderid, user_id=user_id).first()
     if not order:
         return jsonify({'error': 'Order not found'}), 404
 
@@ -630,23 +691,30 @@ def payment_status_update(orderid):
     return jsonify(order_data), 200
 
 
+
+
+
 @Order_bp.route('/delete/<string:order_id>', methods=['DELETE'])
 @jwt_required()
 def delete_order(order_id):
-    verify_jwt_in_request()
-    user_id = get_jwt_identity()
-    role = get_jwt()['role']
+    identity = get_jwt_identity()
+    role = get_jwt().get("role")
 
     order = Order.query.get(order_id)
-
     if not order:
         return jsonify({'error': 'Order not found'}), 404
 
-    
-    if role == 'user' and order.user_id != user_id:
-        return jsonify({'error': 'Unauthorized to delete this order'}), 403
-    if role == 'farmer':
-        return jsonify({'error': 'Farmers cannot delete orders'}), 403
+    # Role-based authorization
+    if role == 'customer':
+        if order.user_id != identity:
+            return jsonify({'error': 'Unauthorized: You can only delete your own orders'}), 403
+
+    elif role == 'farmer':
+        # Check if the farmer has items in the order
+        farmer_involved = any(item.farmer_id == identity for item in order.items)
+        if not farmer_involved:
+            return jsonify({'error': 'Unauthorized: You are not part of this order'}), 403
+        return jsonify({'error': 'Farmers are not allowed to delete orders'}), 403
 
     try:
         db.session.delete(order)

@@ -8,6 +8,10 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from App.Utils.Token_Utils import generate_verification_token, confirm_verification_token
 from App.Utils.Verification_mails import send_farmer_welcome_email
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_cors import cross_origin
+from werkzeug.utils import secure_filename
+import os
+import uuid
 
 
 
@@ -91,27 +95,52 @@ def login_farmer():
 @farmer_routes.route('/farmers', methods=['PUT'])
 @jwt_required()
 def update_farmer():
+    # Get current farmer from token
     id = get_jwt_identity()
     farmer = Farmer.query.get(id)
     if not farmer:
         return jsonify({"error": "Farmer not found"}), 404
 
-    data = request.json
-    farmer.username = data.get('username', farmer.username)
-    farmer.email = data.get('email', farmer.email)
-    farmer.phone = data.get('phone', farmer.phone)
-    farmer.profile_picture = data.get('profile_picture', farmer.profile_picture)
-    
-   
-    if data.get('password'):
-        farmer.set_password(data.get('password'))
+    # Update text fields
+    farmer.username = request.form.get('username', farmer.username)
+    farmer.email = request.form.get('email', farmer.email)
+    farmer.phone = request.form.get('phone', farmer.phone)
+
+    # Handle image upload
+    if 'profile_picture' in request.files:
+        image = request.files['profile_picture']
+        if image:
+            upload_folder = os.path.join('App', 'static', 'uploads')
+            os.makedirs(upload_folder, exist_ok=True)
+
+            filename = secure_filename(f"{uuid.uuid4().hex}_{image.filename}")
+            image_path = os.path.join(upload_folder, filename)
+            image.save(image_path)
+
+            # Save DB-friendly relative path
+            farmer.profile_picture = f"static/uploads/{filename}"
+
+    # Optional password update
+    if request.form.get('password'):
+        farmer.set_password(request.form.get('password'))
 
     db.session.commit()
-    return jsonify({"message": "Farmer updated", "farmer": farmer.username})
+
+    return jsonify({
+        "message": "Farmer updated",
+        "farmer": {
+            "id": farmer.id,
+            "username": farmer.username,
+            "email": farmer.email,
+            "phone": farmer.phone,
+            "profile_picture": farmer.profile_picture
+        }
+    }), 200
 
 
-@farmer_routes.route('/farmers', methods=['GET'])
+@farmer_routes.route('/farmers', methods=['GET', 'OPTIONS'])  # <-- OPTIONS added
 @jwt_required()
+@cross_origin(origins="http://127.0.0.1:5173", supports_credentials=True)
 def get_farmer():
     id = get_jwt_identity()
     farmer = Farmer.query.get(id)

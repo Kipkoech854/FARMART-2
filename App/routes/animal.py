@@ -5,6 +5,10 @@ from App.models.Animals import Animal, AnimalImage
 from App.Schema.animal_schemas import AnimalSchema, AnimalImageSchema
 import requests
 from App.models.Likes import Like
+import os
+from werkzeug.utils import secure_filename
+from App.Utils.Animal_email_sender import send_animal_creation_confirmation
+from sqlalchemy import and_
 
 
 animals_blueprint = Blueprint('animals', __name__)
@@ -12,55 +16,72 @@ animals_blueprint = Blueprint('animals', __name__)
 animal_schema = AnimalSchema()
 animals_schema = AnimalSchema(many=True)
 
-@animals_blueprint.route('/animals', methods=['POST'])
+UPLOAD_FOLDER = os.path.join('static', 'uploads')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@animals_blueprint.route('/animals/create', methods=['POST'])
 @jwt_required()
 def create_animal():
     print(">>> Entered create_animal route")
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No JSON received or Content-Type not set to application/json"}), 400
-
     user_id = get_jwt_identity()
-    current_user_id = user_id
-    print("Current user ID:", current_user_id)
+    print("Current user ID:", user_id)
+
+    # Ensure the uploads folder exists
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
     try:
+        # Parse form fields
+        name = request.form.get('name')
+        type_ = request.form.get('type')
+        breed = request.form.get('breed')
+        age = request.form.get('age')
+        price = request.form.get('price')
+        location = request.form.get('location')
+        description = request.form.get('description')
+        is_available = request.form.get('is_available') == 'true'
+
         new_animal = Animal(
-            name=data.get('name'),
-            type=data.get('type'),
-            breed=data.get('breed'),
-            age=data.get('age'),
-            price=data.get('price'),
-            location=data.get('location'),
-            description=data.get('description'),
-            is_available=True,
-            farmer_id=current_user_id
+            name=name,
+            type=type_,
+            breed=breed,
+            age=int(age),
+            price=float(price),
+            description=description,
+            is_available=is_available,
+            farmer_id=user_id,
+            location=location
         )
         db.session.add(new_animal)
-        db.session.commit() 
+        db.session.commit()
 
-        image_urls = data.get('images', [])
-        for img in image_urls:
-            image_url = img['url'] if isinstance(img, dict) else img
-            new_image = AnimalImage(url=image_url, animal_id=new_animal.id)
-            db.session.add(new_image)
+        images = request.files.getlist('images')
+        for file in images:
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(UPLOAD_FOLDER, filename)
+                file.save(filepath)
 
-        db.session.commit()  
+                file_url = f"/static/uploads/{filename}"  
+                image = AnimalImage(url=file_url, animal_id=new_animal.id)
+                db.session.add(image)
 
+        db.session.commit()
+
+        # Build payload and send email
         animal_with_images = Animal.query.get(new_animal.id)
         payload = animal_schema.dump(animal_with_images)
-        payload['farmer_id'] = current_user_id
-
-        from App.Utils.Animal_email_sender import send_animal_creation_confirmation
+        payload['farmer_id'] = user_id
         send_animal_creation_confirmation(payload)
 
-        return jsonify(payload), 201  
+        return jsonify(payload), 201
 
     except Exception as e:
-        print("Database or creation error:", str(e))
+        print("Error:", str(e))
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
 
 
 @animals_blueprint.route('/animals', methods=['GET'])
@@ -186,3 +207,66 @@ def toggle_like(animal_id):
         db.session.add(new_like)
         db.session.commit()
         return jsonify({'message': 'Liked successfully'}), 201
+
+
+
+@animals_blueprint.route('/search', methods=['GET'])
+def search_animals():
+    try:
+        # Get query parameters with defaults
+        animal_type = request.args.get('type')
+        breed = request.args.get('breed')
+        location = request.args.get('location')
+        min_price = request.args.get('min_price', type=float)
+        max_price = request.args.get('max_price', type=float)
+        
+        # Start with base query
+        query = Animal.query.filter(Animal.is_available == True)
+        
+        # Build filters dynamically
+        filters = []
+        if animal_type:
+            filters.append(Animal.type.ilike(f'%{animal_type}%'))
+        if breed:
+            filters.append(Animal.breed.ilike(f'%{breed}%'))
+        if location:
+            filters.append(Animal.location.ilike(f'%{location}%'))
+        if min_price is not None:
+            filters.append(Animal.price >= min_price)
+        if max_price is not None:
+            filters.append(Animal.price <= max_price)
+        
+        # Apply all filters
+        if filters:
+            query = query.filter(and_(*filters))
+        
+        # Execute query
+        animals = query.all()
+        
+        # Format response with animal images
+        results = []
+        for animal in animals:
+            animal_data = {
+                'id': animal.id,
+                'name': animal.name,
+                'type': animal.type,
+                'breed': animal.breed,
+                'age': animal.age,
+                'price': animal.price,
+                'description': animal.description,
+                'location': animal.location,
+                'images': [img.url for img in animal.images]
+            }
+            results.append(animal_data)
+        
+        return jsonify({
+            'success': True,
+            'count': len(results),
+            'animals': results
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500        

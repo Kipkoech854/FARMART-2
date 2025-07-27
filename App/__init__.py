@@ -18,7 +18,8 @@ def create_app(config_name=None):
     if config_name is None:
         config_name = os.getenv("FLASK_ENV", "production")  # Default to production
 
-    app = Flask(__name__)
+    app = Flask(__name__,static_folder='static', static_url_path='/static')
+
 
     # Common configs
     app.config['MAIL_DEBUG'] = True
@@ -27,7 +28,7 @@ def create_app(config_name=None):
 
     # Load environment-specific config (production/development/testing)
     app.config.from_object(config_by_name[config_name])
-    print(app.config['SQLALCHEMY_DATABASE_URI'])
+    
 
     # Mail config
     app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
@@ -44,7 +45,10 @@ def create_app(config_name=None):
     ma.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    CORS(app, supports_credentials=True)
+    CORS(app, resources={r"/api/*": {"origins": "http://127.0.0.1:5173"}}, supports_credentials=True)
+
+
+
 
     mail.init_app(app)
     bcrypt.init_app(app)

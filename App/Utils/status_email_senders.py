@@ -101,7 +101,7 @@ def send_status_update_to_farmers(data):
             )
             msg.body = (
                 f"Hello {username},\n\n"
-                f"The user has marked the status of their order as *{status.upper()}*.\n\n"
+                f"This is to confirm that you have changed status of the following order to *{status.upper()}*.\n\n and that the customer has also been informed "
                 f"Order Summary:{order_lines}\n"
                 f"{context_line}\n\n"
                 f"Thank you for being part of FarmArt!\n"

@@ -4,6 +4,11 @@ from App.models.Users import User
 from App import db
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, verify_jwt_in_request
 from functools import wraps
+from werkzeug.utils import secure_filename
+import os
+from App.Schema.Users_schema import UserSchema
+from flask import current_app
+
 
 
 user_bp = Blueprint('user', __name__)
@@ -19,29 +24,42 @@ def role_required(*required_roles):
             return fn(*args, **kwargs)
         return decorator
     return wrapper
-
 @user_bp.route('/user', methods=['PATCH'])
 @jwt_required()
-@role_required('admin')
-def update_user(user_id):
-    user_id = get_jwt_identity()
-    data = request.get_json()
-    user = User.query.get(user_id)
+def update_user():
+    current_user_id = get_jwt_identity()
+    username = request.form.get('username')
+    email = request.form.get('email')
+    profile_pic = request.files.get('profilePicture')
 
+    user = User.query.get(current_user_id)
     if not user:
-        return jsonify({"msg": "User not found"}), 404
+        return jsonify({'error': 'User not found'}), 404
 
-    if 'username' in data:
-        user.username = data['username']
-    if 'email' in data:
-        user.email = data['email']
-    if 'role' in data:
-        user.role = data['role']
-    if 'profile_picture' in data:
-        user.profile_picture = data['profile_picture']
+    if get_jwt()["role"] != "customer":
+        return jsonify({'error': 'Forbidden'}), 403
 
+    if username:
+        user.username = username
+    if email:
+        user.email = email
+
+    if profile_pic:
+        filename = secure_filename(profile_pic.filename)
+
+        # ✅ Save inside static/uploads using absolute path
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+
+        full_path = os.path.join(upload_folder, filename)
+        profile_pic.save(full_path)
+
+        # ✅ Save relative path (Flask will serve it via /static/)
+        user.profile_picture = f"uploads/{filename}"
     db.session.commit()
-    return jsonify({"msg": "User updated successfully"}), 200
+    return jsonify(UserSchema().dump(user)), 200
+
+
 
 @user_bp.route('/user', methods=['DELETE'])
 @jwt_required()
@@ -63,5 +81,26 @@ def delete_user():
 def get_user(user_id):
     users = User.query.all()
     return jsonify([user.to_dict() for user in users]), 200
-
+    
+@user_bp.route('/profile', methods=['GET'])
+@jwt_required()
+def get_profile():
+    # Get current user's ID from JWT
+    current_user_id = get_jwt_identity()
+    
+    # Query the database for this user
+    user = User.query.get(current_user_id)
+    
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    return jsonify({
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "phone": user.phone,
+        "role": user.role,
+        "profile_picture": user.profile_picture,
+        "verified": user.verified
+    }), 200
     
