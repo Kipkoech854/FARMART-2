@@ -126,4 +126,5 @@ def verify_email(token):
     send_welcome_email(user.email, user.username)
 
     access_token = create_access_token(identity=user.id, additional_claims={"role": user.role})
-    return redirect(f"https://yourfrontend.com/verified?token={access_token}")
+    return redirect(f"https://moomall.netlify.app/verify?status=success&token={access_token}&email={email}")
+

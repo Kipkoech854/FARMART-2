@@ -45,7 +45,21 @@ def create_app(config_name=None):
     ma.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    CORS(app, resources={r"/api/*": {"origins": "http://127.0.0.1:5173"}}, supports_credentials=True)
+    CORS(app, supports_credentials=True, resources={
+    r"/api/*": {
+        "origins": [
+            "http://127.0.0.1:5173",          # Local Vite dev server
+            "https://moomall.netlify.app"     # Production Netlify frontend
+        ]
+    },
+    r"/auth/*": {
+        "origins": [
+            "http://127.0.0.1:5173",
+            "https://moomall.netlify.app"
+        ]
+    }
+})
+
 
 
 

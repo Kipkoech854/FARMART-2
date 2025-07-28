@@ -262,4 +262,5 @@ def verify_email(token):
         additional_claims={"role": "farmer"}
     )
 
-    return redirect(f"https://your-frontend.com/verify?status=success&token={access_token}&email={email}")
+    return redirect(f"https://moomall.netlify.app/verify?status=success&token={access_token}&email={email}")
+
