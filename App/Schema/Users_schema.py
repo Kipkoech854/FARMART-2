@@ -11,5 +11,8 @@ class UserSchema(ma.SQLAlchemySchema):
     id = ma.auto_field()
     username = ma.auto_field()
     email = ma.auto_field()
+    phone = ma.auto_field()
     role = ma.auto_field()
     profile_picture = ma.auto_field()
+    verified = ma.auto_field()
+    

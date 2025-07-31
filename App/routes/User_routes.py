@@ -104,3 +104,12 @@ def get_profile():
         "verified": user.verified
     }), 200
     
+
+@user_bp.route('/adminUsers', methods=['GET'])
+def get_all_users():
+    users = User.query.all()
+
+    if not users:
+        return jsonify({'error': 'You have no registered users'}), 404
+
+    return jsonify(UserSchema(many=True).dump(users)), 200

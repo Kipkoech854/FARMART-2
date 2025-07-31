@@ -80,6 +80,7 @@ def create_app(config_name=None):
     from .routes.Auth_mail_routes import Auth_Mail_bp 
     from .routes.home_routes import home_bp 
     from .routes.Payment_routes import payment_bp 
+    from .routes.admin_routes import admin_bp
 
 
     app.register_blueprint(home_bp) 
@@ -91,6 +92,7 @@ def create_app(config_name=None):
     app.register_blueprint(Mailservice_bp, url_prefix='/api/Mailservice')
     app.register_blueprint(Auth_Mail_bp, url_prefix='/api/AuthMail')
     app.register_blueprint(payment_bp, url_prefix='/api/Payment')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
 
     return app

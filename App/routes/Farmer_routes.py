@@ -6,12 +6,16 @@ from App.models.Feedback import Feedback
 from App.extensions import db
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from App.Utils.Token_Utils import generate_verification_token, confirm_verification_token
-from App.Utils.Verification_mails import send_farmer_welcome_email
+from App.Utils.Verification_mails import send_farmer_welcome_email, send_verification_email
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import cross_origin
 from werkzeug.utils import secure_filename
 import os
 import uuid
+from App.Schema.Farmer_schema import FarmersSchema
+from itsdangerous import SignatureExpired, BadSignature
+from App.Schema.Animal_schema import AnimalSchema
+
 
 
 
@@ -264,3 +268,45 @@ def verify_email(token):
 
     return redirect(f"https://moomall.netlify.app/verify?status=success&token={access_token}&email={email}")
 
+
+@farmer_routes.route('/adminFarmers', methods=['GET'])
+def get_all_farmers():
+    farmers = Farmer.query.limit(100).all()  # Optional: limit results
+
+    if not farmers:
+        return jsonify({'error': 'there are no registered farmers yet'}), 404
+
+    return jsonify(FarmersSchema(many=True, exclude=['animals']).dump(farmers)), 200
+
+
+@farmer_routes.route('/adminFarmers/<string:farmer_id>/animals', methods=['GET'])
+def get_each_farmer_animals(farmer_id):
+    farmer = Farmer.query.get_or_404(farmer_id)
+    return jsonify(AnimalSchema(many=True).dump(farmer.animals)), 200
+
+
+@farmer_routes.route('/adminFarmers/search', methods=['GET'])
+def search_farmers():
+    query = request.args.get('query', '', type=str).strip()
+
+    if not query:
+        return jsonify({'error': 'Search query is required'}), 400
+
+    farmers = Farmer.query.filter(
+        db.or_(
+            Farmer.username.ilike(f"%{query}%"),
+            Farmer.email.ilike(f"%{query}%")
+        )
+    ).limit(50).all()
+
+    if not farmers:
+        return jsonify({'message': 'No matching farmers found'}), 404
+
+    return jsonify(FarmersSchema(many=True, exclude=['animals']).dump(farmers)), 200
+
+@farmer_routes.route('/farmers/<uuid:farmer_id>/toggle-verify', methods=['PUT'])
+def toggle_verify(farmer_id):
+    farmer = Farmer.query.get_or_404(farmer_id)
+    farmer.verified = 'disabled' if farmer.verified == 'verified' else 'verified'
+    db.session.commit()
+    return jsonify(success=True)

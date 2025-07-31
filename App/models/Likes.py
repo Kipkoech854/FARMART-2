@@ -4,9 +4,9 @@ import uuid
 class Like(db.Model):
     __tablename__ = 'likes'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
-    animal_id = db.Column(db.String(36), db.ForeignKey('animals.id'), nullable=False)
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    animal_id = db.Column(db.UUID(as_uuid=True), db.ForeignKey('animals.id'), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
  

@@ -3,6 +3,8 @@ from App.models.Farmers import Farmer
 from App.models.Users import User
 from App.extensions import mail
 from flask_mail import Message
+from sqlalchemy.orm import joinedload
+from collections import defaultdict
 
 def get_farmer_contact(farmer_id):
     farmer = Farmer.query.get(farmer_id)
@@ -26,23 +28,32 @@ def group_items_by_farmer_util(items):
     if not isinstance(items, list):
         raise ValueError("'items' must be a list")
 
-    farmer_items = {}
+    # Extract all unique animal_ids from the items
+    animal_ids = list({item.get("animal_id") for item in items if item.get("animal_id")})
+
+    # Batch query all animals with their images and farmers
+    animals = (
+        Animal.query
+        .options(joinedload(Animal.images), joinedload(Animal.farmer))
+        .filter(Animal.id.in_(animal_ids))
+        .all()
+    )
+
+    # Map animal_id -> animal
+    animal_map = {str(animal.id): animal for animal in animals}
+
+    # Group items under farmer_id
+    farmer_items = defaultdict(list)
 
     for item in items:
         animal_id = item.get("animal_id")
-        if not animal_id:
-            continue
-
-        animal = Animal.query.get(animal_id)
+        animal = animal_map.get(animal_id)
         if not animal:
             continue
 
-        farmer_id = animal.farmer_id
-        if farmer_id not in farmer_items:
-            farmer_items[farmer_id] = []
-
+        farmer_id = str(animal.farmer_id)
         enriched_item = {
-            "animal_id": animal.id,
+            "animal_id": str(animal.id),
             "name": animal.name,
             "type": animal.type,
             "breed": animal.breed,
@@ -57,24 +68,28 @@ def group_items_by_farmer_util(items):
 
         farmer_items[farmer_id].append(enriched_item)
 
-    response_payload = []
+    # Now batch load all farmers
+    farmer_ids = list(farmer_items.keys())
+    farmers = Farmer.query.filter(Farmer.id.in_(farmer_ids)).all()
+    farmer_map = {str(farmer.id): farmer for farmer in farmers}
 
+    # Prepare final response
+    response_payload = []
     for farmer_id, items_list in farmer_items.items():
-        contact = get_farmer_contact(farmer_id)
-        if not contact:
+        farmer = farmer_map.get(farmer_id)
+        if not farmer:
             print(f"Farmer not found: {farmer_id}")
             continue
 
         response_payload.append({
             "id": farmer_id,
-            "email": contact.get("email"),
-            "username": contact.get("username"),
-            'profile_picture':contact.get('profile_picture'),
+            "email": farmer.email,
+            "username": farmer.username,
+            "profile_picture": farmer.profile_picture,
             "items": items_list
         })
 
     return response_payload
-
 
 def validate_request_data(data):
     if not data:
@@ -182,24 +197,20 @@ def group_items_by_farmer_util_for_user(items):
 
 
 
-def group_items_by_farmer_util_for_farmer(user_id, items):
+def group_items_by_farmer_enriched(items, animal_map, farmer_map, current_farmer_id=None):
     if not isinstance(items, list):
         raise ValueError("'items' must be a list")
 
-    current_user_id = user_id
-    farmer_items = {}
+    grouped = {}
 
     for item in items:
-        animal_id = item.get("animal_id")
-        if not animal_id:
+        animal = animal_map.get(item.get("animal_id"))
+        if not animal:
             continue
 
-        animal = Animal.query.get(animal_id)
-        if not animal or animal.farmer_id != current_user_id:
+        farmer_id = animal.farmer_id
+        if current_farmer_id and farmer_id != current_farmer_id:
             continue
-
-        if current_user_id not in farmer_items:
-            farmer_items[current_user_id] = []
 
         enriched_item = {
             "animal_id": animal.id,
@@ -217,20 +228,28 @@ def group_items_by_farmer_util_for_farmer(user_id, items):
             "price_at_order_time": item.get("price_at_order_time")
         }
 
-        farmer_items[current_user_id].append(enriched_item)
+        if farmer_id not in grouped:
+            grouped[farmer_id] = {
+                "farmer": {},
+                "items": []
+            }
 
-    response_payload = []
+        grouped[farmer_id]["items"].append(enriched_item)
 
-    contact = get_farmer_contact(current_user_id)
-    if contact and farmer_items.get(current_user_id):
-        response_payload.append({
-            "id": current_user_id,
-            "email": contact.get("email"),
-            "username": contact.get("username"),
-            "items": farmer_items[current_user_id]
-        })
+    # Attach farmer contact
+    response = []
+    for farmer_id, group in grouped.items():
+        farmer = farmer_map.get(str(farmer_id))
+        if farmer:
+            group["farmer"] = {
+                "id": str(farmer.id),
+                "email": farmer.email,
+                "username": farmer.username,
+                "profile_picture": farmer.profile_picture
+            }
+            response.append(group)
 
-    return response_payload
+    return response
 
 
 def get_orders_relevant_to_farmer(farmer_id):

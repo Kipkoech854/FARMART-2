@@ -10,10 +10,13 @@ from App.extensions import db
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt, verify_jwt_in_request
 from App.Utils.Order_email_senders import send_order_confirmation_to_user, send_order_confirmation_to_farmers
 from functools import wraps
-from App.Utils.mail_utils import group_items_by_farmer_util_for_user, group_items_by_farmer_util_for_farmer, get_farmer_contact, get_user_contact
+from App.Utils.mail_utils import group_items_by_farmer_util_for_user,  get_farmer_contact, get_user_contact,group_items_by_farmer_enriched
 from App.models.Animals import Animal
 from flask_cors import CORS
 from App.Utils.Delivery_email_senders import send_delivery_email_to_user, send_delivery_email_to_farmers
+from App.models.Users import User
+from threading import Thread
+from App.Utils.status_email_senders import send_status_update_to_user, send_status_update_to_farmers
 
 
 Order_bp = Blueprint('Order_bp', __name__)
@@ -96,28 +99,58 @@ def create_order():
 
 
 
+from flask import request
+from sqlalchemy.orm import joinedload, load_only
+from sqlalchemy import or_
+
 @Order_bp.route('/all', methods=['GET'])
 @jwt_required()
 @role_required("farmer", "customer")
 def past_orders():
     verify_jwt_in_request()
-    
+
     user_id = get_jwt_identity()
     role = get_jwt_role()
 
-    # 1. Get orders based on role
+    # Pagination (optional)
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 10))
+
+    # Eager load order items
     if role == "customer":
-        orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).all()
+        orders_query = Order.query.options(joinedload(Order.items)).filter_by(user_id=user_id).order_by(Order.created_at.desc())
     else:
-        orders = Order.query.filter(Order.items.any(OrderItem.farmer_id == user_id)).all()
+        orders_query = Order.query.options(joinedload(Order.items)).filter(Order.items.any(OrderItem.farmer_id == user_id)).order_by(Order.created_at.desc())
+
+    orders = orders_query.paginate(page=page, per_page=limit, error_out=False).items
 
     if not orders:
         return jsonify([{'error': 'empty order history'}]), 404
 
+    # Gather all animal_ids
+    all_items = [item for order in orders for item in order.items]
+    animal_ids = list({item.animal_id for item in all_items if item.animal_id})
+
+    # Query all animals + images
+    animals = Animal.query.options(joinedload(Animal.images)).filter(Animal.id.in_(animal_ids)).all()
+    animal_map = {animal.id: animal for animal in animals}
+
+    # Gather all farmer_ids (for customers)
+    farmer_ids = {animal.farmer_id for animal in animals} if role == "customer" else {user_id}
+    farmers = Farmer.query.filter(Farmer.id.in_(farmer_ids)).options(load_only(Farmer.id, Farmer.email, Farmer.username, Farmer.profile_picture))
+
+    farmer_map = {str(f.id): f for f in farmers}
+
+    # Gather all user_ids (for farmers)
+    user_ids = {order.user_id for order in orders} if role == "farmer" else set()
+    users = User.query.filter(User.id.in_(user_ids)).options(load_only(User.id, User.email, User.username, User.profile_picture))
+
+    user_map = {str(u.id): u for u in users}
+
     full_orders = []
 
     for order in orders:
-        # 2. Extract order items
+        # Format items
         items = [
             {
                 "animal_id": item.animal_id,
@@ -126,15 +159,13 @@ def past_orders():
             } for item in order.items
         ]
 
-        # 3. Enrich animal data based on role
+        # Enrich animals
         if role == "customer":
-            enriched_animals = group_items_by_farmer_util_for_user(items)
-        elif role == "farmer":
-            enriched_animals = group_items_by_farmer_util_for_farmer(user_id=user_id, items=items)
+            enriched = group_items_by_farmer_enriched(items, animal_map, farmer_map)
         else:
-            enriched_animals = []
+            enriched = group_items_by_farmer_enriched(items, animal_map, farmer_map, current_farmer_id=user_id)
 
-        # 4. Build base order response
+        # Base order dict
         order_dict = {
             "id": order.id,
             "status": order.status,
@@ -145,17 +176,17 @@ def past_orders():
             "total": order.total,
             "payment_method": order.payment_method,
             "created_at": order.created_at.isoformat(),
-            "animals": enriched_animals
+            "animals": enriched
         }
 
-        # 5. If farmer, attach customer contact info
+        # Add user info (for farmers)
         if role == "farmer":
-            user_info = get_user_contact(order.user_id)
+            user_info = user_map.get(str(order.user_id))
             if user_info:
                 order_dict["user_info"] = {
-                    "email": user_info.get("email"),
-                    "username": user_info.get("username"),
-                    "profile_picture": user_info.get("profile_picture")
+                    "email": user_info.email,
+                    "username": user_info.username,
+                    "profile_picture": user_info.profile_picture
                 }
 
         full_orders.append(order_dict)
@@ -542,52 +573,58 @@ def get_paid_orders():
 
 
 
-@Order_bp.route('/status/<string:id>', methods=['PUT', 'OPTIONS'])
+@Order_bp.route('/status/<uuid:id>', methods=['PUT', 'OPTIONS'])
 def status_update(id):
     # Handle CORS preflight
     if request.method == 'OPTIONS':
         return '', 200
 
-    # Verify JWT and role
-    verify_jwt_in_request()
-    claims = get_jwt()
-    if claims.get("role") != "farmer":
-        return jsonify({"error": "Unauthorized"}), 403
+    # Verify JWT and farmer role
+    try:
+        verify_jwt_in_request()
+        claims = get_jwt()
+        if claims.get("role") != "farmer":
+            return jsonify({"error": "Unauthorized"}), 403
+    except Exception as e:
+        return jsonify({"error": f"JWT error: {str(e)}"}), 401
 
+    # Validate status value
     new_status = request.args.get('status', '').strip().lower()
-    if new_status not in ['pending', 'confirmed', 'rejected']:
+    allowed_statuses = {'pending', 'confirmed', 'rejected'}
+    if new_status not in allowed_statuses:
         return jsonify({'error': 'Invalid status value'}), 400
 
-    order = Order.query.filter_by(id=id).first()
+    # Fetch order and update
+    order = db.session.get(Order, id)
     if not order:
         return jsonify({'error': 'Order not found'}), 404
 
     order.status = new_status
     db.session.commit()
 
+    # Serialize payload efficiently
     payload = OrderSchema().dump(order)
-    payload['status'] = new_status
 
-    try:
-        from App.Utils.status_email_senders import (
-            send_status_update_to_user,
-            send_status_update_to_farmers
-        )
+    # Kick off background email threads
+    from flask import current_app
 
-        user_success, user_msg = send_status_update_to_user(payload)
-        farmer_success, farmer_msg = send_status_update_to_farmers(payload)
+    def send_emails(app, data):
+        with app.app_context():
+            send_status_update_to_user(data)
+            send_status_update_to_farmers(data)
 
-        if user_success and farmer_success:
-            return jsonify({'success': 'Emails sent to both user and farmers'}), 200
-        elif not user_success and not farmer_success:
-            return jsonify({'error': 'Failed to send emails to both user and farmers'}), 500
-        elif not user_success:
-            return jsonify({'error': f'User email failed: {user_msg}'}), 500
-        else:
-            return jsonify({'error': f'Farmer emails failed: {farmer_msg}'}), 500
+# Instead of using current_app inside the thread, pass it as an argument
+    app = current_app._get_current_object()
+    Thread(target=send_emails, args=(app, payload), daemon=True).start()
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+
+    
+
+    return jsonify({
+        "success": f"Order status updated to '{new_status}'",
+        "order": payload
+    }), 200
+
 
 
 
