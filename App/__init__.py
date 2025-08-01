@@ -7,7 +7,6 @@ from App.extensions import db, ma, migrate, jwt, cors, mail, bcrypt
 from flask_jwt_extended import JWTManager
 from .Config import config_by_name
 from flask_cors import CORS
-
 import smtplib
 
 # Load .env from App folder explicitly
@@ -16,19 +15,15 @@ load_dotenv(env_path)
 
 def create_app(config_name=None):
     if config_name is None:
-        config_name = os.getenv("FLASK_ENV", "production")  # Default to production
+        config_name = os.getenv("FLASK_ENV", "production")
 
-    app = Flask(__name__,static_folder='static', static_url_path='/static')
-
+    app = Flask(__name__, static_folder='static', static_url_path='/static')
 
     # Common configs
     app.config['MAIL_DEBUG'] = True
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-
-    # Load environment-specific config (production/development/testing)
     app.config.from_object(config_by_name[config_name])
-    
 
     # Mail config
     app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
@@ -45,25 +40,6 @@ def create_app(config_name=None):
     ma.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    CORS(app, supports_credentials=True, resources={
-    r"/api/*": {
-        "origins": [
-            "http://127.0.0.1:5173",          # Local Vite dev server
-            "https://moomall.netlify.app"     # Production Netlify frontend
-        ]
-    },
-    r"/auth/*": {
-        "origins": [
-            "http://127.0.0.1:5173",
-            "https://moomall.netlify.app"
-        ]
-    }
-})
-
-
-
-
-
     mail.init_app(app)
     bcrypt.init_app(app)
 
@@ -77,13 +53,12 @@ def create_app(config_name=None):
     from .routes.Farmer_routes import farmer_routes
     from .routes.User_routes import user_bp
     from .routes.Mail_service_routes import Mailservice_bp
-    from .routes.Auth_mail_routes import Auth_Mail_bp 
-    from .routes.home_routes import home_bp 
-    from .routes.Payment_routes import payment_bp 
+    from .routes.Auth_mail_routes import Auth_Mail_bp
+    from .routes.home_routes import home_bp
+    from .routes.Payment_routes import payment_bp
     from .routes.admin_routes import admin_bp
 
-
-    app.register_blueprint(home_bp) 
+    app.register_blueprint(home_bp)
     app.register_blueprint(Order_bp, url_prefix='/api/Order')
     app.register_blueprint(animals_blueprint, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -94,5 +69,14 @@ def create_app(config_name=None):
     app.register_blueprint(payment_bp, url_prefix='/api/Payment')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
+    # Configure CORS after blueprints are registered
+    CORS(app, supports_credentials=True, resources={
+        r"/*": {
+            "origins": [
+                "http://127.0.0.1:5173",
+                "https://moomall.netlify.app"
+            ]
+        }
+    })
 
     return app
