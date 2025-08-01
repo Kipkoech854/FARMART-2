@@ -75,8 +75,8 @@ def login_farmer():
             additional_claims={
             "username": farmer.username,
             "email": farmer.email,
-            "profile_picture": farmer.profile_picture,  # ✅ Add this
-            "role": "farmer"
+            "profile_picture": farmer.profile_picture,  
+            "role": farmer.role
             }
             )
 
@@ -310,3 +310,4 @@ def toggle_verify(farmer_id):
     farmer.verified = 'disabled' if farmer.verified == 'verified' else 'verified'
     db.session.commit()
     return jsonify(success=True)
+

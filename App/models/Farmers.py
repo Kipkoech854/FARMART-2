@@ -13,6 +13,7 @@ class Farmer(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     profile_picture = db.Column(db.String(255))
     verified = db.Column(db.String(20), default='unverified')
+    role = db.Column(db.String(10), default='farmer')
 
     feedbacks = db.relationship("Feedback", back_populates="farmer", cascade="all, delete-orphan")
     animals = db.relationship('Animal', back_populates='farmer', cascade='all, delete-orphan')

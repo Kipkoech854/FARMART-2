@@ -33,7 +33,7 @@ class OrderItem(db.Model):
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     order_id = db.Column(UUID(as_uuid=True), db.ForeignKey('orders.id'), nullable=False)
     animal_id = db.Column(UUID(as_uuid=True), db.ForeignKey('animals.id', ondelete='CASCADE'), nullable=False)
-    quantity = db.Column(UUID(as_uuid=True), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
     price_at_order_time = db.Column(NUMERIC(10, 2), nullable=False)
 
     farmer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('farmers.id'), nullable=False)
