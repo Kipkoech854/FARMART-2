@@ -1,13 +1,11 @@
-from  flask  import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
-
-db = SQLAlchemy()
-ma = Marshmallow()
+from App.extensions import db
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
 
 class Animal(db.Model):
     __tablename__ = 'animals'
-    id = db.Column(db.Integer, primary_key=True)
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = db.Column(db.String(120), nullable=False)
     type = db.Column(db.String(100), nullable=False)
     breed = db.Column(db.String(100), nullable=False)
@@ -15,44 +13,19 @@ class Animal(db.Model):
     price = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text)
     is_available = db.Column(db.Boolean, default=True)
-    farmer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    location = db.Column(db.String, nullable=False)
 
-    images = db.relationship("Animalimages", backref="animal", lazy=True)
+    farmer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('farmers.id'), nullable=False)
+
+    # Relationships
+    farmer = db.relationship('Farmer', back_populates='animals')
+    images = db.relationship('AnimalImage', backref='animal', cascade='all, delete-orphan')
+    likes = db.relationship('Like', back_populates='animal', cascade='all, delete-orphan')
 
 
-class Animalimages(db.Model):
-
+class AnimalImage(db.Model):  
     __tablename__ = 'animal_images'
 
-    id = db.Column(db.Integer, primary_key = True)
-    url = db.Column(db.String(255), nullable = False)
-    animal_id =db.Column(db.Integer, db.ForeignKey('animals.id'), nullable = False)
-
-   
-class AnimalSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = Animal
-        include_fk = True
-
-    id = ma.auto_field()
-    name = ma.auto_field()
-    type = ma.auto_field()
-    breed = ma. auto_field()
-    age = ma.auto_field()
-    price = ma.auto_field()
-    description = ma.auto_field()
-    is_available = ma.auto_field()
-    farmer_id = ma.auto_field()
-
-    images = ma.Nested('AnimalimagesSchema', many=True)              
-
-class AnimalimagesSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = Animalimages
-        include_fk = True
-
-    id = ma.auto_field()
-    url = ma.auto_field()
-    animal_id = ma.auto_field()  
-
-   
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    url = db.Column(db.String(255), nullable=False)
+    animal_id = db.Column(UUID(as_uuid=True), db.ForeignKey('animals.id'), nullable=False)

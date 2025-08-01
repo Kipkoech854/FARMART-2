@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: farmart-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn run:app
+    envVars:
+      - key: SECRET_KEY
+        fromEnv: SECRET_KEY
+      - key: JWT_SECRET_KEY
+        fromEnv: JWT_SECRET_KEY
+      - key: MAIL_USERNAME
+        fromEnv: MAIL_USERNAME
+      - key: MAIL_PASSWORD
+        fromEnv: MAIL_PASSWORD
+      - key: MAIL_SERVER
+        fromEnv: MAIL_SERVER
+      - key: MAIL_PORT
+        fromEnv: MAIL_PORT
+      - key: MAIL_USE_TLS
+        fromEnv: MAIL_USE_TLS
+      - key: DATABASE_URL
+        fromEnv: DATABASE_URL
+    autoDeploy: true
+    region: oregon

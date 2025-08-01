@@ -1,11 +1,9 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
+from App.extensions import db, ma
 
-db = SQLAlchemy()
-ma = Marshmallow()
-
-from .Animals import Animal,Animalimages
-from .Farmers import Farmers
-from .Order import Order, OrderItem
-from .Feedback import Feedback
-from .Users import User
+from App.models.Users import User
+from App.models.Feedback import Feedback
+from App.models.Orders import Order, OrderItem
+from App.models.Animals import Animal, AnimalImage
+from App.models.Farmers import Farmer
+from App.models.Likes import Like
+from App.models.Payments import Payment,Item

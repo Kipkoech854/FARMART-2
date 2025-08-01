@@ -1,54 +1,42 @@
-from App import db
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
-from datetime import datetime  
-
-
-ma = Marshmallow()
-
+from App.extensions import db
+from sqlalchemy.dialects.postgresql import UUID, NUMERIC
+from datetime import datetime
+import uuid
 
 class Order(db.Model):
     __tablename__ = 'orders'
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    status = db.Column(db.String(50), default='pending')
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'))
+    status = db.Column(db.String(50), default='Pending')
+    paid = db.Column(db.Boolean, default=False)
+    delivered = db.Column(db.Boolean, default=False)
+    amount = db.Column(NUMERIC(10, 2), nullable=False)
+    pickup_station = db.Column(db.String, nullable=True)
+    payment_method = db.Column(db.String, default='cash')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    delivery_method = db.Column(db.String, nullable=False)
+    total = db.Column(db.Float, nullable=False)
 
-    items = db.relationship("OrderItem", backref="order", cascade="all, delete-orphan")
+    items = db.relationship(
+        "OrderItem",
+        backref="order",  # ✅ no name conflict now
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
 
 
 class OrderItem(db.Model):
     __tablename__ = 'order_items'
 
-    id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'))
-    animal_id = db.Column(db.Integer, db.ForeignKey('animals.id'))
-    quantity = db.Column(db.Integer, default=1)
-    price_at_order_time = db.Column(db.Float)
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_id = db.Column(UUID(as_uuid=True), db.ForeignKey('orders.id'), nullable=False)
+    animal_id = db.Column(UUID(as_uuid=True), db.ForeignKey('animals.id', ondelete='CASCADE'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    price_at_order_time = db.Column(NUMERIC(10, 2), nullable=False)
 
+    farmer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('farmers.id'), nullable=False)
 
-class OrderItemSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = OrderItem
-        include_fk = True
-
-    id = ma.auto_field()
-    order_id = ma.auto_field()
-    animal_id = ma.auto_field()
-    quantity = ma.auto_field()
-    price_at_order_time = ma.auto_field()
-
-
-class OrderSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = Order
-        include_fk = True
-
-    id = ma.auto_field()
-    user_id = ma.auto_field()
-    status = ma.auto_field()
-    created_at = ma.auto_field()
-    
-    items = ma.Nested(OrderItemSchema, many=True) 
+    farmer = db.relationship("Farmer", backref="order_items")
+    animal = db.relationship("Animal", backref="order_items")

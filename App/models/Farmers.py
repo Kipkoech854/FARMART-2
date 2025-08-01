@@ -1,30 +1,25 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
+from App.extensions import db
+from werkzeug.security import generate_password_hash, check_password_hash
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
 
-db = SQLAlchemy()
-ma = Marshmallow()
-
-from flask import Flask
-from App import db
-
-class Farmers(db.Model):
+class Farmer(db.Model):
     __tablename__ = 'farmers'
 
-    id = db.Column(db.String, primary_key=True)
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = db.Column(db.String(255), unique=True, nullable=False)
-    phone = db.Column(db.Integer, nullable=True)
+    phone = db.Column(db.String(20), nullable=True)
     username = db.Column(db.String(20), nullable=False)
-    password = db.Column(db.String(255), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
     profile_picture = db.Column(db.String(255))
+    verified = db.Column(db.String(20), default='unverified')
+    role = db.Column(db.String(10), default='farmer')
 
+    feedbacks = db.relationship("Feedback", back_populates="farmer", cascade="all, delete-orphan")
+    animals = db.relationship('Animal', back_populates='farmer', cascade='all, delete-orphan')
 
-class FarmersSchema(ma.SQLAlchemySchema):
-    class Meta:
-        model = Farmers  
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
 
-    id = ma.auto_field()
-    email = ma.auto_field()
-    phone = ma.auto_field()
-    username = ma.auto_field()
-    password = ma.auto_field()
-    profile_picture = ma.auto_field()
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
